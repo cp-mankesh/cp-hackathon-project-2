@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  super_admin
+  admin
+  developer
+  viewer
+}
+
+enum IntegrationType {
+  github
+  jira
+}
+
+enum TicketSource {
+  github
+  jira
+  manual
+}
+
+enum TicketPriority {
+  P0
+  P1
+  P2
+  P3
+}
+
+enum TicketStatus {
+  pending
+  claimed
+  cloning
+  planning
+  awaiting_plan_approval
+  implementing
+  testing
+  reviewing
+  awaiting_human_review
+  approved
+  pushing
+  pr_created
+  completed
+  failed
+  rejected
+}
+
+enum WorkflowRunStatus {
+  running
+  awaiting_plan_approval
+  awaiting_approval
+  completed
+  failed
+  rejected
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  githubId  String?  @unique
+  role      UserRole @default(developer)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions     Session[]
+  integrations Integration[]
+  projects     Project[]
+  tickets      Ticket[]      @relation("CreatedTickets")
+  reviews      ReviewDecision[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+}
+
+model Integration {
+  id           String          @id @default(cuid())
+  userId       String
+  type         IntegrationType
+  accessToken  String
+  refreshToken String?
+  metadata     Json?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+}
+
+model Project {
+  id            String   @id @default(cuid())
+  userId        String
+  name          String
+  repoFullName  String?
+  defaultBranch String?  @default("main")
+  description   String?
+  isConnected   Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repositories ProjectRepository[]
+  tickets      Ticket[]
+
+  @@unique([userId, name])
+}
+
+model ProjectRepository {
+  id            String  @id @default(cuid())
+  projectId     String
+  repoFullName  String
+  defaultBranch String  @default("main")
+  label         String?
+  sortOrder     Int     @default(0)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, repoFullName])
+  @@index([projectId])
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  projectId   String
+  createdById String?
+  source      TicketSource
+  externalId  String?
+  title       String
+  body        String         @default("")
+  priority    TicketPriority @default(P2)
+  status      TicketStatus   @default(pending)
+  branchName  String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy    User?         @relation("CreatedTickets", fields: [createdById], references: [id])
+  workflowRuns WorkflowRun[]
+  pullRequests PullRequest[]
+
+  @@index([status])
+  @@index([projectId])
+}
+
+model WorkflowRun {
+  id                 String            @id @default(cuid())
+  ticketId           String
+  temporalWorkflowId String?
+  status             WorkflowRunStatus @default(running)
+  currentStep        String?
+  retryCount         Int               @default(0)
+  reviewRound        Int               @default(0)
+  errorMessage       String?
+  startedAt          DateTime          @default(now())
+  completedAt        DateTime?
+
+  ticket     Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  events     WorkflowEvent[]
+  artifacts  AgentArtifact[]
+  review     ReviewDecision?
+  pullRequests PullRequest[]
+
+  @@index([ticketId])
+}
+
+model WorkflowEvent {
+  id        String   @id @default(cuid())
+  runId     String
+  step      String
+  message   String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model AgentArtifact {
+  id        String   @id @default(cuid())
+  runId     String
+  type      String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+model ReviewDecision {
+  id         String   @id @default(cuid())
+  runId      String   @unique
+  reviewerId String?
+  approved   Boolean
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  run      WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  reviewer User?       @relation(fields: [reviewerId], references: [id])
+}
+
+model PullRequest {
+  id           String   @id @default(cuid())
+  ticketId     String
+  runId        String?
+  repoFullName String
+  githubNumber Int?
+  url          String?
+  branch       String
+  createdAt    DateTime @default(now())
+
+  ticket Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  run    WorkflowRun? @relation(fields: [runId], references: [id])
+
+  @@unique([ticketId, repoFullName])
+  @@index([ticketId])
+}

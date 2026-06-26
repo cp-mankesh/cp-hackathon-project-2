@@ -1,0 +1,26 @@
+
+> autonomous-delivery-os@1.0.0 test
+> vitest run
+
+
+ RUN  v3.2.6 /home/cp/CP/node/react/hackathon/cp-hackathon-project-2
+
+ ✓ packages/agents/src/agents.test.ts (7 tests) 6168ms
+   ✓ @ados/agents openhands > cloneRepository clones a public GitHub repo  2160ms
+   ✓ @ados/agents openhands > createBranch is idempotent when agent branch already exists  1950ms
+   ✓ @ados/agents openhands > cloneRepository skips re-clone when workspace already exists  2011ms
+ ✓ apps/api/src/__tests__/api.test.ts (17 tests) 271ms
+ ✓ tests/smoke.test.ts (4 tests) 1131ms
+   ✓ live smoke tests > web landing page loads  983ms
+ ✓ packages/agents/src/repo-analysis.test.ts (5 tests) 46ms
+ ✓ packages/shared/src/plan-normalize.test.ts (2 tests) 5ms
+ ✓ packages/shared/src/index.test.ts (4 tests) 5ms
+ ✓ apps/web/src/lib/utils.test.ts (4 tests) 4ms
+ ✓ workers/temporal/src/types.test.ts (1 test) 2ms
+
+ Test Files  8 passed (8)
+      Tests  44 passed (44)
+   Start at  08:55:53
+   Duration  10.99s (transform 295ms, setup 104ms, collect 678ms, tests 7.63s, environment 3ms, prepare 882ms)
+
+

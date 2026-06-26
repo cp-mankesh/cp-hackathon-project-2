@@ -1,0 +1,14 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --sidebar-bg: #fafafa;
+  --border: #e5e7eb;
+}
+
+body {
+  @apply bg-white text-gray-900 antialiased;
+}
