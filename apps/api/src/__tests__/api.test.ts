@@ -242,6 +242,112 @@ describe("API integration", () => {
     expect(res.json()).toHaveProperty("integrations");
   });
 
+  it("DELETE /api/integrations/:type disconnects integration", async () => {
+    await prisma.integration.upsert({
+      where: { userId_type: { userId, type: "github" } },
+      update: { accessToken: "test-token" },
+      create: { userId, type: "github", accessToken: "test-token" },
+    });
+
+    const res = await app.inject({
+      method: "DELETE",
+      url: "/api/integrations/github",
+      headers: { cookie: sessionCookie },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+
+    const remaining = await prisma.integration.findUnique({
+      where: { userId_type: { userId, type: "github" } },
+    });
+    expect(remaining).toBeNull();
+  });
+
+  it("POST /api/github/sync imports issues from GitHub repos", async () => {
+    await prisma.integration.upsert({
+      where: { userId_type: { userId, type: "github" } },
+      update: { accessToken: "test-token" },
+      create: { userId, type: "github", accessToken: "test-token" },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [
+        {
+          number: 42,
+          title: "Sync test issue",
+          body: "From GitHub",
+          html_url: "https://github.com/test-org/test-repo/issues/42",
+          state: "open",
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/github/sync",
+      headers: { cookie: sessionCookie, "content-type": "application/json" },
+      payload: { projectId },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ created: number; imported: number }>();
+    expect(body.created).toBeGreaterThan(0);
+    expect(body.imported).toBeGreaterThan(0);
+
+    const ticket = await prisma.ticket.findFirst({
+      where: { projectId, source: "github", externalId: "42" },
+    });
+    expect(ticket?.title).toBe("Sync test issue");
+
+    vi.unstubAllGlobals();
+    if (ticket) {
+      await prisma.ticket.delete({ where: { id: ticket.id } });
+    }
+  });
+
+  it("POST /api/github/import imports a single issue", async () => {
+    await prisma.integration.upsert({
+      where: { userId_type: { userId, type: "github" } },
+      update: { accessToken: "test-token" },
+      create: { userId, type: "github", accessToken: "test-token" },
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        number: 7,
+        title: "Single import issue",
+        body: "One issue only",
+        html_url: "https://github.com/test-org/test-repo/issues/7",
+        state: "open",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+    const repoFullName = project.repoFullName!;
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/github/import",
+      headers: { cookie: sessionCookie, "content-type": "application/json" },
+      payload: { projectId, repoFullName, number: 7 },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ created: boolean; ticket: { title: string } }>();
+    expect(body.created).toBe(true);
+    expect(body.ticket.title).toBe("Single import issue");
+
+    vi.unstubAllGlobals();
+    const ticket = await prisma.ticket.findFirst({
+      where: { projectId, source: "github", externalId: "7" },
+    });
+    if (ticket) {
+      await prisma.ticket.delete({ where: { id: ticket.id } });
+    }
+  });
+
   it("GET /api/monitor/llm returns usage stats", async () => {
     const res = await app.inject({
       method: "GET",

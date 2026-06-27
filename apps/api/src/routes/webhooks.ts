@@ -151,6 +151,25 @@ export async function webhookRoutes(app: FastifyInstance) {
     return { integrations };
   });
 
+  app.delete("/api/integrations/:type", async (request, reply) => {
+    const user = await requireUser(request);
+    const { type } = request.params as { type: string };
+
+    if (type !== "github" && type !== "jira") {
+      return reply.status(400).send({ error: "Invalid integration type" });
+    }
+
+    const result = await prisma.integration.deleteMany({
+      where: { userId: user.id, type },
+    });
+
+    if (result.count === 0) {
+      return reply.status(404).send({ error: "Integration not connected" });
+    }
+
+    return { ok: true };
+  });
+
   app.get("/api/monitor/llm", async (request) => {
     const user = await requireUser(request);
     const runs = await prisma.workflowRun.findMany({

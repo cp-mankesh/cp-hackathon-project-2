@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn, priorityColor, statusColor } from "@/lib/utils";
-import { Plus, RefreshCw, Play } from "lucide-react";
+import { Plus, RefreshCw, Play, Github, ExternalLink } from "lucide-react";
 import { STATUS_LABELS } from "@ados/shared";
 
 interface ProjectRepository {
   repoFullName: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  repoFullName: string | null;
+  repositories: ProjectRepository[];
 }
 
 interface Ticket {
@@ -18,6 +25,18 @@ interface Ticket {
   priority: string;
   source: string;
   project: { name: string; repoFullName: string | null; repositories: ProjectRepository[] };
+}
+
+interface GitHubIssue {
+  number: number;
+  title: string;
+  body: string;
+  htmlUrl: string;
+  state: string;
+  repoFullName: string;
+  projectId: string;
+  imported: boolean;
+  ticketId?: string;
 }
 
 function projectSubtitle(p: Ticket["project"]) {
@@ -32,6 +51,14 @@ export default function TicketHubPage() {
   const [stats, setStats] = useState({ pending: 0, total: 0, withDocs: 0 });
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [hasGithub, setHasGithub] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [githubProjectId, setGithubProjectId] = useState("");
+  const [githubIssues, setGithubIssues] = useState<GitHubIssue[]>([]);
+  const [githubRepoCount, setGithubRepoCount] = useState(0);
+  const [githubLoading, setGithubLoading] = useState(false);
+  const [githubSyncing, setGithubSyncing] = useState(false);
+  const [importingIssueKey, setImportingIssueKey] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -47,9 +74,40 @@ export default function TicketHubPage() {
     }
   }
 
+  const loadGithubIssues = useCallback(async () => {
+    if (!hasGithub) return;
+    setGithubLoading(true);
+    try {
+      const query = githubProjectId ? `?projectId=${encodeURIComponent(githubProjectId)}` : "";
+      const data = await api<{ issues: GitHubIssue[]; repoCount: number }>(
+        `/api/github/issues${query}`
+      );
+      setGithubIssues(data.issues);
+      setGithubRepoCount(data.repoCount);
+    } catch (e) {
+      setGithubIssues([]);
+      setGithubRepoCount(0);
+      alert(e instanceof Error ? e.message : "Failed to load GitHub issues");
+    } finally {
+      setGithubLoading(false);
+    }
+  }, [githubProjectId, hasGithub]);
+
   useEffect(() => {
     load();
+    api<{ integrations: Array<{ type: string }> }>("/api/integrations")
+      .then((d) => setHasGithub(d.integrations.some((i) => i.type === "github")))
+      .catch(() => setHasGithub(false));
+    api<{ projects: Project[] }>("/api/projects")
+      .then((d) => setProjects(d.projects))
+      .catch(() => setProjects([]));
   }, []);
+
+  useEffect(() => {
+    if (filter === "github" && hasGithub) {
+      loadGithubIssues();
+    }
+  }, [filter, hasGithub, loadGithubIssues]);
 
   async function runTicket(id: string) {
     try {
@@ -60,8 +118,47 @@ export default function TicketHubPage() {
     }
   }
 
+  async function syncGithubIssues() {
+    setGithubSyncing(true);
+    try {
+      const body = githubProjectId ? { projectId: githubProjectId } : {};
+      await api("/api/github/sync", { method: "POST", body: JSON.stringify(body) });
+      await Promise.all([load(), loadGithubIssues()]);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to sync GitHub issues");
+    } finally {
+      setGithubSyncing(false);
+    }
+  }
+
+  function githubIssueKey(issue: GitHubIssue) {
+    return `${issue.repoFullName}-${issue.number}`;
+  }
+
+  async function importGithubIssue(issue: GitHubIssue) {
+    const key = githubIssueKey(issue);
+    setImportingIssueKey(key);
+    try {
+      await api("/api/github/import", {
+        method: "POST",
+        body: JSON.stringify({
+          projectId: issue.projectId,
+          repoFullName: issue.repoFullName,
+          number: issue.number,
+        }),
+      });
+      await Promise.all([load(), loadGithubIssues()]);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to import issue");
+    } finally {
+      setImportingIssueKey(null);
+    }
+  }
+
   const filtered =
     filter === "all" ? tickets : tickets.filter((t) => t.source === filter);
+
+  const unimportedGithubIssues = githubIssues.filter((issue) => !issue.imported);
 
   const priorityCards = [
     { key: "P0", label: "Critical", sub: "Core commerce" },
@@ -126,6 +223,135 @@ export default function TicketHubPage() {
       <p className="mb-4 text-sm text-gray-500">
         {stats.pending} tickets pending · {stats.withDocs} / {stats.total} completed
       </p>
+
+      {filter === "github" && (
+        <div className="mb-6 rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Github className="h-5 w-5 text-gray-700" />
+              <div>
+                <p className="font-medium text-gray-900">GitHub Issues</p>
+                <p className="text-sm text-gray-500">
+                  Open issues from repositories linked to your projects
+                </p>
+              </div>
+            </div>
+            {hasGithub && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={githubProjectId}
+                  onChange={(e) => setGithubProjectId(e.target.value)}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
+                >
+                  <option value="">All projects</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={loadGithubIssues}
+                  disabled={githubLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", githubLoading && "animate-spin")} />
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  onClick={syncGithubIssues}
+                  disabled={githubSyncing || githubRepoCount === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                >
+                  <RefreshCw className={cn("h-3.5 w-3.5", githubSyncing && "animate-spin")} />
+                  {githubSyncing ? "Syncing…" : "Sync Issues"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {!hasGithub ? (
+            <p className="mt-4 text-sm text-gray-600">
+              Connect GitHub in{" "}
+              <Link href="/admin/settings" className="text-primary hover:underline">
+                Settings
+              </Link>{" "}
+              to list and import issues.
+            </p>
+          ) : githubRepoCount === 0 ? (
+            <p className="mt-4 text-sm text-gray-600">
+              <Link href="/admin/projects" className="text-primary hover:underline">
+                Create a project
+              </Link>{" "}
+              and link GitHub repositories to fetch issues.
+            </p>
+          ) : githubLoading ? (
+            <p className="mt-4 text-sm text-gray-500">Loading GitHub issues…</p>
+          ) : githubIssues.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500">No open issues found in linked repositories.</p>
+          ) : (
+            <div className="mt-4 space-y-2">
+              <p className="text-xs text-gray-500">
+                {githubIssues.length} open issue{githubIssues.length === 1 ? "" : "s"}
+                {unimportedGithubIssues.length > 0
+                  ? ` · ${unimportedGithubIssues.length} not yet imported`
+                  : " · all imported"}
+              </p>
+              <div className="max-h-72 space-y-2 overflow-y-auto">
+                {githubIssues.map((issue) => (
+                  <div
+                    key={`${issue.repoFullName}-${issue.number}`}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400">
+                        {issue.repoFullName} #{issue.number}
+                      </p>
+                      <p className="truncate text-sm font-medium text-gray-900">{issue.title}</p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <a
+                        href={issue.htmlUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-white hover:text-gray-600"
+                        title="Open on GitHub"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                      {issue.imported && issue.ticketId ? (
+                        <Link
+                          href={`/admin/tickets/${issue.ticketId}`}
+                          className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 hover:bg-green-200"
+                        >
+                          Imported
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => importGithubIssue(issue)}
+                          disabled={importingIssueKey === githubIssueKey(issue)}
+                          className="rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                        >
+                          {importingIssueKey === githubIssueKey(issue) ? "Importing…" : "Import"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {unimportedGithubIssues.length > 0 && (
+                <p className="text-xs text-gray-500">
+                  Use <span className="font-medium">Import</span> on a single issue, or{" "}
+                  <span className="font-medium">Sync Issues</span> to import all open issues at once.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         {filtered.map((ticket) => (

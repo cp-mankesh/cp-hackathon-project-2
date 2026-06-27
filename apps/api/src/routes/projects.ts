@@ -8,6 +8,110 @@ const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
 const GITHUB_API = "https://api.github.com";
 
+type GitHubApiIssue = {
+  number: number;
+  title: string;
+  body?: string | null;
+  html_url: string;
+  state: string;
+  pull_request?: unknown;
+};
+
+type ProjectRepoLink = {
+  projectId: string;
+  repoFullName: string;
+};
+
+async function getUserProjectRepos(userId: string, projectId?: string): Promise<ProjectRepoLink[]> {
+  const projects = await prisma.project.findMany({
+    where: { userId, ...(projectId ? { id: projectId } : {}) },
+    include: { repositories: { orderBy: { sortOrder: "asc" } } },
+  });
+
+  const links: ProjectRepoLink[] = [];
+  for (const project of projects) {
+    if (project.repositories.length > 0) {
+      for (const repo of project.repositories) {
+        if (repo.repoFullName !== "demo/sample-app") {
+          links.push({ projectId: project.id, repoFullName: repo.repoFullName });
+        }
+      }
+    } else if (project.repoFullName && project.repoFullName !== "demo/sample-app") {
+      links.push({ projectId: project.id, repoFullName: project.repoFullName });
+    }
+  }
+  return links;
+}
+
+async function fetchOpenGitHubIssues(
+  token: string,
+  repoFullName: string
+): Promise<GitHubApiIssue[]> {
+  const res = await fetch(
+    `${GITHUB_API}/repos/${repoFullName}/issues?state=open&per_page=100&sort=updated`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+      },
+    }
+  );
+  if (!res.ok) return [];
+  const issues = (await res.json()) as GitHubApiIssue[];
+  return issues.filter((issue) => !issue.pull_request);
+}
+
+async function fetchGitHubIssue(
+  token: string,
+  repoFullName: string,
+  number: number
+): Promise<GitHubApiIssue | null> {
+  const res = await fetch(`${GITHUB_API}/repos/${repoFullName}/issues/${number}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github+json",
+    },
+  });
+  if (!res.ok) return null;
+  const issue = (await res.json()) as GitHubApiIssue;
+  if (issue.pull_request) return null;
+  return issue;
+}
+
+async function upsertGitHubIssueTicket(input: {
+  projectId: string;
+  issue: GitHubApiIssue;
+}) {
+  const existing = await prisma.ticket.findFirst({
+    where: {
+      projectId: input.projectId,
+      source: "github",
+      externalId: String(input.issue.number),
+    },
+  });
+
+  if (existing) {
+    return prisma.ticket.update({
+      where: { id: existing.id },
+      data: {
+        title: input.issue.title,
+        body: input.issue.body ?? "",
+      },
+    });
+  }
+
+  return prisma.ticket.create({
+    data: {
+      projectId: input.projectId,
+      source: "github",
+      externalId: String(input.issue.number),
+      title: input.issue.title,
+      body: input.issue.body ?? "",
+      priority: "P2",
+    },
+  });
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.get("/api/auth/me", async (request, reply) => {
     const user = await getUserFromSession(getSessionToken(request));
@@ -201,6 +305,143 @@ export async function projectRoutes(app: FastifyInstance) {
         private: r.private,
       })),
     };
+  });
+
+  app.get("/api/github/issues", async (request, reply) => {
+    const user = await requireUser(request);
+    const query = request.query as { projectId?: string };
+
+    const integration = await prisma.integration.findUnique({
+      where: { userId_type: { userId: user.id, type: "github" } },
+    });
+    if (!integration) {
+      return reply.status(400).send({ error: "Connect GitHub first" });
+    }
+
+    const repoLinks = await getUserProjectRepos(user.id, query.projectId);
+    if (repoLinks.length === 0) {
+      return { issues: [], repoCount: 0 };
+    }
+
+    const importedTickets = await prisma.ticket.findMany({
+      where: {
+        projectId: { in: [...new Set(repoLinks.map((link) => link.projectId))] },
+        source: "github",
+      },
+      select: { id: true, projectId: true, externalId: true },
+    });
+    const importedByKey = new Map(
+      importedTickets.map((ticket) => [`${ticket.projectId}:${ticket.externalId}`, ticket.id])
+    );
+
+    const issues = [];
+    for (const link of repoLinks) {
+      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, link.repoFullName);
+      for (const issue of repoIssues) {
+        const key = `${link.projectId}:${issue.number}`;
+        issues.push({
+          number: issue.number,
+          title: issue.title,
+          body: issue.body ?? "",
+          htmlUrl: issue.html_url,
+          state: issue.state,
+          repoFullName: link.repoFullName,
+          projectId: link.projectId,
+          imported: importedByKey.has(key),
+          ticketId: importedByKey.get(key),
+        });
+      }
+    }
+
+    issues.sort((a, b) => b.number - a.number);
+    return { issues, repoCount: repoLinks.length };
+  });
+
+  app.post("/api/github/sync", async (request, reply) => {
+    const user = await requireUser(request);
+    const body = z.object({ projectId: z.string().optional() }).parse(request.body ?? {});
+
+    const integration = await prisma.integration.findUnique({
+      where: { userId_type: { userId: user.id, type: "github" } },
+    });
+    if (!integration) {
+      return reply.status(400).send({ error: "Connect GitHub first" });
+    }
+
+    const repoLinks = await getUserProjectRepos(user.id, body.projectId);
+    if (repoLinks.length === 0) {
+      return reply.status(400).send({ error: "Add a project with GitHub repositories first" });
+    }
+
+    const tickets = [];
+    let created = 0;
+    let updated = 0;
+
+    for (const link of repoLinks) {
+      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, link.repoFullName);
+      for (const issue of repoIssues) {
+        const existing = await prisma.ticket.findFirst({
+          where: {
+            projectId: link.projectId,
+            source: "github",
+            externalId: String(issue.number),
+          },
+        });
+        const ticket = await upsertGitHubIssueTicket({ projectId: link.projectId, issue });
+        tickets.push(ticket);
+        if (existing) updated += 1;
+        else created += 1;
+      }
+    }
+
+    return { imported: tickets.length, created, updated, tickets };
+  });
+
+  app.post("/api/github/import", async (request, reply) => {
+    const user = await requireUser(request);
+    const body = z
+      .object({
+        projectId: z.string(),
+        repoFullName: z.string(),
+        number: z.number().int().positive(),
+      })
+      .parse(request.body);
+
+    const integration = await prisma.integration.findUnique({
+      where: { userId_type: { userId: user.id, type: "github" } },
+    });
+    if (!integration) {
+      return reply.status(400).send({ error: "Connect GitHub first" });
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: body.projectId, userId: user.id },
+    });
+    if (!project) {
+      return reply.status(404).send({ error: "Project not found" });
+    }
+
+    const repoLinks = await getUserProjectRepos(user.id, body.projectId);
+    const repoLinked = repoLinks.some((link) => link.repoFullName === body.repoFullName);
+    if (!repoLinked) {
+      return reply.status(400).send({ error: "Repository not linked to this project" });
+    }
+
+    const issue = await fetchGitHubIssue(integration.accessToken, body.repoFullName, body.number);
+    if (!issue) {
+      return reply.status(404).send({ error: "Issue not found or is a pull request" });
+    }
+
+    const existing = await prisma.ticket.findFirst({
+      where: {
+        projectId: body.projectId,
+        source: "github",
+        externalId: String(body.number),
+      },
+    });
+
+    const ticket = await upsertGitHubIssueTicket({ projectId: body.projectId, issue });
+    return { ticket, created: !existing };
   });
 
   const connectSchema = z.object({

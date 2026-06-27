@@ -6,12 +6,28 @@ import { Github } from "lucide-react";
 
 export default function SettingsPage() {
   const [integrations, setIntegrations] = useState<Array<{ type: string }>>([]);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
 
   useEffect(() => {
     api<{ integrations: Array<{ type: string }> }>("/api/integrations").then((d) =>
       setIntegrations(d.integrations)
     );
   }, []);
+
+  async function disconnect(type: "github" | "jira") {
+    const label = type === "github" ? "GitHub" : "Jira";
+    if (!confirm(`Disconnect ${label}? You can reconnect anytime from this page.`)) return;
+
+    setDisconnecting(type);
+    try {
+      await api(`/api/integrations/${type}`, { method: "DELETE" });
+      setIntegrations((prev) => prev.filter((i) => i.type !== type));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to disconnect");
+    } finally {
+      setDisconnecting(null);
+    }
+  }
 
   const hasGithub = integrations.some((i) => i.type === "github");
   const hasJira = integrations.some((i) => i.type === "jira");
@@ -34,9 +50,19 @@ export default function SettingsPage() {
               </div>
             </div>
             {hasGithub ? (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                Connected
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                  Connected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => disconnect("github")}
+                  disabled={disconnecting === "github"}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-50"
+                >
+                  {disconnecting === "github" ? "Disconnecting…" : "Disconnect"}
+                </button>
+              </div>
             ) : (
               <a
                 href={`${API_URL}/api/auth/github`}
@@ -55,9 +81,19 @@ export default function SettingsPage() {
               <p className="text-sm text-gray-500">Import issues via OAuth</p>
             </div>
             {hasJira ? (
-              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                Connected
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                  Connected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => disconnect("jira")}
+                  disabled={disconnecting === "jira"}
+                  className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-red-50 hover:border-red-200 hover:text-red-600 disabled:opacity-50"
+                >
+                  {disconnecting === "jira" ? "Disconnecting…" : "Disconnect"}
+                </button>
+              </div>
             ) : (
               <a
                 href={`${API_URL}/api/auth/jira`}
