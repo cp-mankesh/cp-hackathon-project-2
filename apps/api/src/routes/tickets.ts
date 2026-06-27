@@ -2,8 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@ados/db";
 import { validateGitHubToken } from "@ados/agents";
-import { resolveProjectRepositories } from "@ados/shared";
 import { requireUser } from "../lib/auth";
+import {
+  loadWorkflowRepositories,
+  projectHasMissingPushCredentials,
+  projectRequiresGitHubOAuth,
+  resolveRepoPushToken,
+} from "../lib/repo-auth";
 import { startTicketWorkflow, terminateTicketWorkflow } from "../lib/temporal";
 
 const createTicketSchema = z.object({
@@ -21,11 +26,17 @@ async function loadProjectRepositories(projectId: string) {
     include: { repositories: { orderBy: { sortOrder: "asc" } } },
   });
   if (!project) return [];
-  return resolveProjectRepositories({
-    repositories: project.repositories,
-    repoFullName: project.repoFullName,
-    defaultBranch: project.defaultBranch,
-  });
+  return loadWorkflowRepositories(project);
+}
+
+function enrichRepositoriesForWorkflow(
+  repositories: ReturnType<typeof loadWorkflowRepositories> extends Promise<infer T> ? T : never,
+  githubAccessToken?: string | null
+) {
+  return repositories.map((repo) => ({
+    ...repo,
+    gitToken: resolveRepoPushToken(repo, githubAccessToken),
+  }));
 }
 
 export async function ticketRoutes(app: FastifyInstance) {
@@ -153,18 +164,33 @@ export async function ticketRoutes(app: FastifyInstance) {
       where: { userId_type: { userId: user.id, type: "github" } },
     });
 
-    if (!integration?.accessToken) {
+    if (projectRequiresGitHubOAuth(repositories) && !integration?.accessToken) {
       return reply.status(400).send({
         error: "Connect your GitHub account in Settings before running the agent.",
       });
     }
 
-    const tokenCheck = await validateGitHubToken(integration.accessToken);
-    if (!tokenCheck.valid) {
-      return reply.status(400).send({
-        error: tokenCheck.error ?? "Invalid GitHub token. Reconnect GitHub in Settings.",
-      });
+    if (integration?.accessToken && projectRequiresGitHubOAuth(repositories)) {
+      const tokenCheck = await validateGitHubToken(integration.accessToken);
+      if (!tokenCheck.valid) {
+        return reply.status(400).send({
+          error: tokenCheck.error ?? "Invalid GitHub token. Reconnect GitHub in Settings.",
+        });
+      }
     }
+
+    const missingCredentials = projectHasMissingPushCredentials(
+      repositories,
+      integration?.accessToken
+    );
+    if (missingCredentials) {
+      return reply.status(400).send({ error: missingCredentials });
+    }
+
+    const workflowRepositories = enrichRepositoriesForWorkflow(
+      repositories,
+      integration?.accessToken
+    );
 
     const activeRun = await prisma.workflowRun.findFirst({
       where: {
@@ -192,10 +218,10 @@ export async function ticketRoutes(app: FastifyInstance) {
         runId: run.id,
         ticketId: ticket.id,
         projectId: ticket.projectId,
-        repositories,
+        repositories: workflowRepositories,
         title: ticket.title,
         body: ticket.body,
-        githubToken: integration.accessToken,
+        githubToken: integration?.accessToken,
       });
     } catch (err) {
       await prisma.workflowRun.update({
@@ -242,16 +268,32 @@ export async function ticketRoutes(app: FastifyInstance) {
     const integration = await prisma.integration.findUnique({
       where: { userId_type: { userId: user.id, type: "github" } },
     });
-    if (!integration?.accessToken) {
+
+    if (projectRequiresGitHubOAuth(repositories) && !integration?.accessToken) {
       return reply.status(400).send({ error: "Connect your GitHub account in Settings before revising." });
     }
 
-    const tokenCheck = await validateGitHubToken(integration.accessToken);
-    if (!tokenCheck.valid) {
-      return reply.status(400).send({
-        error: tokenCheck.error ?? "Invalid GitHub token. Reconnect GitHub in Settings.",
-      });
+    if (integration?.accessToken && projectRequiresGitHubOAuth(repositories)) {
+      const tokenCheck = await validateGitHubToken(integration.accessToken);
+      if (!tokenCheck.valid) {
+        return reply.status(400).send({
+          error: tokenCheck.error ?? "Invalid GitHub token. Reconnect GitHub in Settings.",
+        });
+      }
     }
+
+    const missingCredentials = projectHasMissingPushCredentials(
+      repositories,
+      integration?.accessToken
+    );
+    if (missingCredentials) {
+      return reply.status(400).send({ error: missingCredentials });
+    }
+
+    const workflowRepositories = enrichRepositoriesForWorkflow(
+      repositories,
+      integration?.accessToken
+    );
 
     const activeRun = await prisma.workflowRun.findFirst({
       where: {
@@ -279,10 +321,10 @@ export async function ticketRoutes(app: FastifyInstance) {
         runId: run.id,
         ticketId: ticket.id,
         projectId: ticket.projectId,
-        repositories,
+        repositories: workflowRepositories,
         title: ticket.title,
         body: ticket.body,
-        githubToken: integration.accessToken,
+        githubToken: integration?.accessToken,
         mode: "revision",
         revisionPrompt: body.prompt.trim(),
       });

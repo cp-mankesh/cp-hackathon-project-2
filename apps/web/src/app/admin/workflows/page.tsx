@@ -3,8 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { STATUS_LABELS } from "@ados/shared";
 import { statusColor, cn } from "@/lib/utils";
+import { QueueCollapsibleCard } from "@/components/QueueCollapsibleCard";
 import { ExternalLink } from "lucide-react";
+
+interface ActiveTicket {
+  id: string;
+  title: string;
+  body: string;
+  status: string;
+  priority: string;
+  source: string;
+  project: { name: string; repoFullName: string | null };
+}
 
 export default function WorkflowMonitorPage() {
   return (
@@ -38,14 +50,14 @@ export default function WorkflowMonitorPage() {
 }
 
 function ActiveTickets() {
-  const [tickets, setTickets] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [tickets, setTickets] = useState<ActiveTicket[]>([]);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    api<{ tickets: Array<{ id: string; title: string; status: string }> }>("/api/tickets").then(
-      (d) =>
-        setTickets(
-          d.tickets.filter((t) => !["completed", "failed", "rejected", "pending"].includes(t.status))
-        )
+    api<{ tickets: ActiveTicket[] }>("/api/tickets").then((d) =>
+      setTickets(
+        d.tickets.filter((t) => !["completed", "failed", "rejected", "pending"].includes(t.status))
+      )
     );
   }, []);
 
@@ -55,19 +67,52 @@ function ActiveTickets() {
       {tickets.length === 0 ? (
         <p className="text-sm text-gray-500">No active workflows.</p>
       ) : (
-        <div className="space-y-2">
-          {tickets.map((t) => (
-            <Link
-              key={t.id}
-              href={`/admin/tickets/${t.id}`}
-              className="flex items-center justify-between rounded-lg border border-gray-100 px-4 py-3 hover:bg-gray-50"
-            >
-              <span className="text-sm font-medium">{t.title}</span>
-              <span className={cn("rounded-full px-2 py-0.5 text-xs", statusColor(t.status))}>
-                {t.status}
-              </span>
-            </Link>
-          ))}
+        <div className="space-y-3">
+          {tickets.map((ticket) => {
+            const isExpanded = expanded === ticket.id;
+            const statusLabel =
+              STATUS_LABELS[ticket.status as keyof typeof STATUS_LABELS] ?? ticket.status;
+
+            return (
+              <QueueCollapsibleCard
+                key={ticket.id}
+                isExpanded={isExpanded}
+                onToggle={() => setExpanded(isExpanded ? null : ticket.id)}
+                borderClassName="border-gray-100"
+                repoLabel={ticket.project.repoFullName ?? ticket.project.name}
+                title={ticket.title}
+                ticketHref={`/admin/tickets/${ticket.id}`}
+                badge={
+                  <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-xs", statusColor(ticket.status))}>
+                    {statusLabel}
+                  </span>
+                }
+                collapsedPreview={
+                  <p className="text-xs text-gray-500">
+                    {ticket.priority} · {ticket.source} · click to expand
+                  </p>
+                }
+                expandedContent={
+                  <div className="space-y-3 pt-4">
+                    {ticket.body ? (
+                      <p className="whitespace-pre-wrap text-sm text-gray-700">{ticket.body}</p>
+                    ) : (
+                      <p className="text-sm text-gray-500">No description provided.</p>
+                    )}
+                  </div>
+                }
+                footer={
+                  <Link
+                    href={`/admin/tickets/${ticket.id}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View live ticket
+                  </Link>
+                }
+              />
+            );
+          })}
         </div>
       )}
     </div>

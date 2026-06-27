@@ -11,6 +11,11 @@ export interface TicketWorkflowInput {
     repoFullName: string;
     defaultBranch: string;
     label?: string | null;
+    sourceType?: "github" | "local";
+    localPath?: string | null;
+    remoteUrl?: string | null;
+    gitUsername?: string | null;
+    gitToken?: string | null;
   }>;
   title: string;
   body: string;

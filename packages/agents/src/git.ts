@@ -14,6 +14,38 @@ export function buildPublicRepoUrl(repoFullName: string): string {
   return `https://github.com/${repoFullName}.git`;
 }
 
+export function buildAuthenticatedRemoteUrl(
+  remoteUrl: string,
+  username: string,
+  token: string
+): string {
+  const normalized = remoteUrl.replace(/^git@([^:]+):(.+\.git?)$/, "https://$1/$2");
+  const url = new URL(normalized);
+  url.username = encodeURIComponent(username);
+  url.password = encodeURIComponent(token);
+  return url.toString();
+}
+
+export async function getOriginRemoteUrl(workspacePath: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync("git", ["remote", "get-url", "origin"], {
+      cwd: workspacePath,
+      timeout: 10_000,
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function setOriginRemoteUrl(workspacePath: string, remoteUrl: string): Promise<void> {
+  try {
+    await execGit(["remote", "set-url", "origin", remoteUrl], { cwd: workspacePath });
+  } catch {
+    await execGit(["remote", "add", "origin", remoteUrl], { cwd: workspacePath });
+  }
+}
+
 export async function isGitRepository(workspacePath: string): Promise<boolean> {
   try {
     await execFileAsync("git", ["rev-parse", "--git-dir"], {

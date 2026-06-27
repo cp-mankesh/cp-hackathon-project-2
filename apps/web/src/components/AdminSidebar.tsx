@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Ticket,
@@ -14,7 +14,9 @@ import {
   Activity,
   Settings,
   Zap,
+  LogOut,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const nav = [
@@ -33,6 +35,17 @@ const nav = [
 
 export function AdminSidebar({ ticketCount }: { ticketCount?: number }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function logout() {
+    try {
+      await api("/api/auth/logout", { method: "POST", body: "{}" });
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to log out");
+    }
+  }
 
   const sections = [
     { key: "main", label: null },
@@ -96,6 +109,14 @@ export function AdminSidebar({ ticketCount }: { ticketCount?: number }) {
       <div className="border-t border-gray-200 px-4 py-3">
         <p className="text-xs font-medium text-gray-700">Admin</p>
         <p className="text-[10px] text-gray-400">Super Admin</p>
+        <button
+          type="button"
+          onClick={logout}
+          className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Log out
+        </button>
       </div>
     </aside>
   );

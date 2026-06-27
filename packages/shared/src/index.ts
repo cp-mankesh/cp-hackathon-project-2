@@ -128,10 +128,18 @@ export {
   decodeRepoFilePath,
   repoWorkspaceDirName,
   ticketRepoWorkspace,
+  resolveRepoWorkspace,
   groupFilesByRepo,
   resolveProjectRepositories,
   type ProjectRepositoryInfo,
+  type RepoSourceType,
 } from "./repo-paths";
+export {
+  localRepoId,
+  isGitHubRemoteUrl,
+  parseGitHubRepoFromRemote,
+  isLocalRepository,
+} from "./local-repo";
 export {
   parseUnifiedDiffByFile,
   listChangedFilesFromDiff,

@@ -1,8 +1,6 @@
-export interface ProjectRepositoryInfo {
-  repoFullName: string;
-  defaultBranch: string;
-  label?: string | null;
-}
+import type { ProjectRepositoryInfo } from "./local-repo";
+export type { ProjectRepositoryInfo, RepoSourceType } from "./local-repo";
+export { localRepoId, isGitHubRemoteUrl, parseGitHubRepoFromRemote, isLocalRepository } from "./local-repo";
 
 export function encodeRepoFilePath(repoFullName: string, filePath: string): string {
   return `${repoFullName}::${filePath}`;
@@ -31,6 +29,17 @@ export function ticketRepoWorkspace(
   return `${workspacesDir}/${ticketId}/${repoWorkspaceDirName(repoFullName)}`;
 }
 
+export function resolveRepoWorkspace(
+  ticketId: string,
+  repo: ProjectRepositoryInfo,
+  workspacesDir = "/tmp/ados-workspaces"
+): string {
+  if (repo.sourceType === "local" && repo.localPath) {
+    return repo.localPath;
+  }
+  return ticketRepoWorkspace(ticketId, repo.repoFullName, workspacesDir);
+}
+
 export function groupFilesByRepo(
   files: string[]
 ): Map<string, string[]> {
@@ -46,7 +55,14 @@ export function groupFilesByRepo(
 }
 
 export function resolveProjectRepositories(project: {
-  repositories?: ProjectRepositoryInfo[];
+  repositories?: Array<
+    ProjectRepositoryInfo & {
+      sourceType?: string | null;
+      localPath?: string | null;
+      remoteUrl?: string | null;
+      gitUsername?: string | null;
+    }
+  >;
   repoFullName?: string | null;
   defaultBranch?: string | null;
 }): ProjectRepositoryInfo[] {
@@ -55,6 +71,10 @@ export function resolveProjectRepositories(project: {
       repoFullName: r.repoFullName,
       defaultBranch: r.defaultBranch ?? "main",
       label: r.label,
+      sourceType: (r.sourceType as ProjectRepositoryInfo["sourceType"]) ?? "github",
+      localPath: r.localPath,
+      remoteUrl: r.remoteUrl,
+      gitUsername: r.gitUsername,
     }));
   }
   if (project.repoFullName) {
