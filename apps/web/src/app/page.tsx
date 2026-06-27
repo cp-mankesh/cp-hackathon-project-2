@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { API_URL, api } from "@/lib/api";
-import { Github, Zap, ArrowRight, FolderGit2 } from "lucide-react";
+import { Github, Zap, ArrowRight, FolderGit2, LogOut } from "lucide-react";
 
 interface PublicProject {
   id: string;
@@ -19,11 +20,13 @@ interface AuthUser {
 }
 
 export default function LandingPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<PublicProject[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [hasGithub, setHasGithub] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/projects/public`)
@@ -52,6 +55,22 @@ export default function LandingPage() {
   }, []);
 
   const userLabel = user?.name ?? user?.email ?? "Account";
+
+  async function logout() {
+    setLoggingOut(true);
+    try {
+      await api("/api/auth/logout", { method: "POST", body: "{}" });
+      setIsAuthenticated(false);
+      setUser(null);
+      setHasGithub(false);
+      router.push("/");
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to log out");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50/30">
@@ -87,6 +106,15 @@ export default function LandingPage() {
                     Connect GitHub
                   </a>
                 )}
+                <button
+                  type="button"
+                  onClick={logout}
+                  disabled={loggingOut}
+                  className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {loggingOut ? "Logging out…" : "Log out"}
+                </button>
               </>
             ) : (
               <>
