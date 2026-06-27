@@ -8,6 +8,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(__dirname, "../..");
 export const dataDir = path.join(root, "data");
 export const workspacesDir = path.join(dataDir, "workspaces");
+const temporalServerRoot = path.join(root, "node_modules", "temporal-server");
+
+/** temporal-server joins dbPath with its package root — must be relative, not absolute (Windows). */
+export function getTemporalDbPathEnv() {
+  return path.relative(temporalServerRoot, path.join(dataDir, "temporal.db"));
+}
 
 export function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -44,7 +50,8 @@ export function applyEnvDefaults() {
   process.env.DATABASE_URL =
     process.env.DATABASE_URL ?? `file:${path.join(dataDir, "ados.db").replace(/\\/g, "/")}`;
   process.env.TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? "localhost:7233";
-  process.env.TEMPORAL_DB_PATH = path.join(dataDir, "temporal.db");
+  process.env.TEMPORAL_DB_PATH =
+    process.env.TEMPORAL_DB_PATH ?? getTemporalDbPathEnv();
 }
 
 /**
@@ -182,7 +189,7 @@ export async function ensureTemporalRunning() {
     return;
   }
 
-  process.env.TEMPORAL_DB_PATH = path.join(dataDir, "temporal.db");
+  process.env.TEMPORAL_DB_PATH = getTemporalDbPathEnv();
   runSync("npx", ["temporal", "start"], "Starting Temporal dev server (embedded SQLite)");
   await waitForPort(7233, "Temporal");
   await waitForPort(8080, "Temporal UI");
@@ -204,6 +211,7 @@ export function setupDatabase() {
 
 export function buildDevPackages() {
   runSync("npm", ["run", "build", "-w", "@ados/shared"], "Building @ados/shared");
+  runSync("npm", ["run", "build", "-w", "@ados/db"], "Building @ados/db");
   runSync("npm", ["run", "build", "-w", "@ados/agents"], "Building @ados/agents");
 }
 

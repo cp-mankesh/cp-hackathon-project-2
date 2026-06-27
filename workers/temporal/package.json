@@ -6,7 +6,6 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "predev": "npm run build -w @ados/shared && npm run build -w @ados/agents",
     "start": "node dist/index.js"
   },
   "dependencies": {
