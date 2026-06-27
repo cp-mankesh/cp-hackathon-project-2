@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Cross-platform one-time project setup (Linux, macOS, Windows).
- * Expects a shared .env file in the project root — nothing else to configure.
+ * One-command lightweight setup (Linux, macOS, Windows).
+ * No Docker — uses SQLite + embedded Temporal dev server.
  *
  * Usage:
- *   npm run setup
- *   node scripts/setup.mjs
- *   node scripts/setup.mjs --run   # setup then start dev server
+ *   npm run setup              # install, configure, and start the app
+ *   npm run setup -- --no-run  # setup only, don't start dev server
  */
 import { spawn } from "node:child_process";
 import {
@@ -20,7 +19,7 @@ import {
   startInfrastructure,
 } from "./lib/bootstrap.mjs";
 
-const runAfterSetup = process.argv.includes("--run");
+const runAfterSetup = !process.argv.includes("--no-run");
 
 async function main() {
   console.log("╔══════════════════════════════════════════╗");
@@ -37,7 +36,7 @@ async function main() {
 
   if (runAfterSetup) {
     console.log("→ Starting dev server...\n");
-    const child = spawn("npm", ["run", "dev"], {
+    const child = spawn("npm", ["run", "dev:apps"], {
       cwd: root,
       stdio: "inherit",
       env: process.env,

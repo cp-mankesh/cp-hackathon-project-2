@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const root = path.resolve(__dirname, "../..");
+export const dataDir = path.join(root, "data");
+export const workspacesDir = path.join(dataDir, "workspaces");
 
 export function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -16,7 +18,13 @@ export function loadEnvFile(filePath) {
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
     if (!process.env[key]) process.env[key] = value;
   }
 }
@@ -32,6 +40,11 @@ export function applyEnvDefaults() {
     process.env.GITHUB_CALLBACK_URL ?? `${process.env.API_URL}/api/auth/github/callback`;
   process.env.JIRA_CALLBACK_URL =
     process.env.JIRA_CALLBACK_URL ?? `${process.env.API_URL}/api/auth/jira/callback`;
+  process.env.WORKSPACES_DIR = process.env.WORKSPACES_DIR ?? workspacesDir;
+  process.env.DATABASE_URL =
+    process.env.DATABASE_URL ?? `file:${path.join(dataDir, "ados.db").replace(/\\/g, "/")}`;
+  process.env.TEMPORAL_ADDRESS = process.env.TEMPORAL_ADDRESS ?? "localhost:7233";
+  process.env.TEMPORAL_DB_PATH = path.join(dataDir, "temporal.db");
 }
 
 /**
@@ -56,6 +69,17 @@ export function loadProjectEnv(options = {}) {
   loadEnvFile(envPath);
   loadEnvFile(path.join(root, ".env.local"));
   applyEnvDefaults();
+  validateDatabaseUrl();
+}
+
+function validateDatabaseUrl() {
+  const url = process.env.DATABASE_URL ?? "";
+  if (url.startsWith("postgresql://") || url.startsWith("postgres://")) {
+    throw new Error(
+      "DATABASE_URL points to PostgreSQL. Update your shared .env to use SQLite:\n" +
+        '  DATABASE_URL="file:../../../data/ados.db"'
+    );
+  }
 }
 
 export function runSync(command, args, label) {
@@ -105,12 +129,6 @@ export function checkPrerequisites() {
     errors.push("npm is not installed.");
   }
 
-  if (!commandExists("docker", ["--version"])) {
-    errors.push("Docker is not installed. https://docs.docker.com/get-docker/");
-  } else if (!commandExists("docker", ["compose", "version"])) {
-    errors.push("Docker Compose is not available. Install Docker Desktop or the compose plugin.");
-  }
-
   if (errors.length > 0) {
     console.error("\n✗ Prerequisites check failed:\n");
     for (const err of errors) {
@@ -120,7 +138,12 @@ export function checkPrerequisites() {
     throw new Error("Fix the items above and run setup again.");
   }
 
-  console.log("✓ Prerequisites OK (Node.js, npm, Docker)");
+  console.log("✓ Prerequisites OK (Node.js 20+ and npm)");
+}
+
+export function ensureDataDirs() {
+  fs.mkdirSync(workspacesDir, { recursive: true });
+  console.log("✓ Data directories ready");
 }
 
 export function isPortInUse(port) {
@@ -153,12 +176,21 @@ export async function waitForPort(port, label, maxWaitMs = 120_000) {
   throw new Error(`Timeout waiting for ${label} on port ${port}`);
 }
 
-export async function startInfrastructure() {
-  runSync("docker", ["compose", "up", "-d"], "Starting Docker (Postgres, Redis, Temporal)");
-  await waitForPort(5433, "Postgres");
-  await waitForPort(6380, "Redis");
+export async function ensureTemporalRunning() {
+  if (await isPortInUse(7233)) {
+    console.log("✓ Temporal dev server already running");
+    return;
+  }
+
+  process.env.TEMPORAL_DB_PATH = path.join(dataDir, "temporal.db");
+  runSync("npx", ["temporal", "start"], "Starting Temporal dev server (embedded SQLite)");
   await waitForPort(7233, "Temporal");
   await waitForPort(8080, "Temporal UI");
+}
+
+export async function startInfrastructure() {
+  ensureDataDirs();
+  await ensureTemporalRunning();
 }
 
 export function installDependencies() {
@@ -180,6 +212,5 @@ export function printServiceUrls() {
   console.log("  Web:         " + process.env.WEB_URL);
   console.log("  API:         " + process.env.API_URL);
   console.log("  Temporal UI: http://localhost:8080");
-  console.log("\n  Start the app:  npm run dev");
-  console.log("  Stop everything: npm run stop\n");
+  console.log("\n  Stop everything: npm run stop\n");
 }

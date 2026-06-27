@@ -7,32 +7,18 @@ AI Engineer Hub — a Devin/Railway-style platform for autonomous ticket-driven 
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 15, Tailwind CSS (light theme) |
-| API | Fastify, Prisma, PostgreSQL |
-| Orchestration | Temporal |
-| Agents | OpenHands + OpenAI |
+| API | Fastify, Prisma, SQLite |
+| Orchestration | Temporal (embedded dev server) |
+| Agents | OpenAI |
 | Integrations | GitHub OAuth, Jira OAuth, webhooks |
-
-## Features
-
-- **Landing page** with connected projects
-- **Admin panel** (Ticket Hub, Review Queue, Workflow Monitor, LLM Monitor)
-- **Ticket sources**: manual, GitHub Issues, Jira
-- **GitHub OAuth** — connect account and select repositories
-- **Temporal workflow**: clone → branch → plan → implement → test → review loops → **human approval** → push → PR
-- **Review Queue gate** — no push/PR until approved
 
 ## Quick Start
 
-### Prerequisites
-
-- Node.js 20+
-- Docker & Docker Compose
-
-### Setup (first time)
+**Prerequisites:** Node.js 20+ only — no Docker required.
 
 1. Clone the repo
 2. Place the shared `.env` file in the project root
-3. Run setup (works on Linux, macOS, and Windows):
+3. Run one command:
 
 ```bash
 npm run setup
@@ -45,19 +31,7 @@ Or use the platform helper:
 setup.bat           # Windows
 ```
 
-Setup installs dependencies, starts Docker, syncs the database, and builds packages.
-
-### Run the app
-
-```bash
-npm run dev
-```
-
-Or setup + run in one step:
-
-```bash
-npm run setup:run
-```
+That single command installs dependencies, starts the embedded Temporal server, creates the SQLite database, builds packages, and launches the app.
 
 | Service | URL |
 |---------|-----|
@@ -65,24 +39,41 @@ npm run setup:run
 | API | http://localhost:4020 |
 | Temporal UI | http://localhost:8080 |
 
+### Daily development
+
+```bash
+npm run dev
+```
+
 ### Stop everything
 
 ```bash
 npm run stop
 ```
 
-Default ports **3020** (web) and **4020** (api) avoid conflicts with other local projects on 3000/3001.
-
-### Manual steps (optional)
-
-```bash
-npm run docker:up    # infrastructure only
-npm run dev:apps     # app services only (skip docker/db bootstrap)
-npm run db:push      # sync schema manually
-```
-
 - **Dev login**: http://localhost:3020/login → "Dev login (no GitHub)"
 - **GitHub OAuth**: set `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.env`
+
+## Shared `.env` requirements
+
+Your shared `.env` must use SQLite (not PostgreSQL):
+
+```env
+DATABASE_URL="file:../../../data/ados.db"
+WORKSPACES_DIR=./data/workspaces
+```
+
+All other secrets (OpenAI, GitHub, etc.) stay the same.
+
+## Optional: Docker stack
+
+For a full Postgres + Redis stack, use `docker-compose.yml`:
+
+```bash
+npm run docker:up
+# set DATABASE_URL=postgresql://ados:ados_secret@localhost:5433/ados in .env
+# switch packages/db/prisma/schema.prisma provider back to postgresql
+```
 
 ## Workflow
 
@@ -110,6 +101,7 @@ workers/temporal/  Temporal workflows & activities
 packages/shared/   Shared types
 packages/db/       Prisma schema
 packages/agents/   OpenAI + OpenHands wrappers
+data/              SQLite DB + agent workspaces (created by setup)
 ```
 
 ## License

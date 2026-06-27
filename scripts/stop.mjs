@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/** Stop app processes on project ports and Docker Compose services. */
-import { execSync } from "node:child_process";
+/** Stop app processes and embedded Temporal dev server. */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,40 +22,40 @@ function loadEnv() {
   }
 }
 
+function freePort(port) {
+  spawnSync("npx", ["kill-port", String(port)], {
+    cwd: root,
+    stdio: "ignore",
+    shell: process.platform === "win32",
+  });
+}
+
 loadEnv();
 
 const ports = [
   process.env.WEB_PORT ?? "3020",
   process.env.API_PORT ?? "4020",
-  "3000",
-  "3001",
-  "4000",
+  "8080",
+  "8233",
+  "7233",
 ];
 
 console.log("Stopping Autonomous Delivery App...\n");
 
 for (const port of ports) {
-  try {
-    execSync(`fuser -k ${port}/tcp 2>/dev/null`, { stdio: "ignore" });
-    console.log(`  ✓ Freed port ${port}`);
-  } catch {
-    // port not in use
-  }
+  freePort(port);
+  console.log(`  ✓ Freed port ${port}`);
 }
 
 try {
-  execSync("pkill -f 'cp-hackathon-project-2.*(tsx watch|next dev|concurrently)' 2>/dev/null", {
-    stdio: "ignore",
+  spawnSync("npx", ["temporal", "stop"], {
+    cwd: root,
+    stdio: "inherit",
+    shell: process.platform === "win32",
   });
+  console.log("  ✓ Temporal dev server stopped");
 } catch {
-  // no processes
-}
-
-try {
-  execSync("docker compose down", { cwd: root, stdio: "inherit" });
-  console.log("  ✓ Docker Compose stopped");
-} catch {
-  console.log("  (Docker Compose was not running)");
+  console.log("  (Temporal was not running)");
 }
 
 console.log("\n✓ All services stopped.\n");

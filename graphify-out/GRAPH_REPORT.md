@@ -1,16 +1,16 @@
 # Graph Report - cp-hackathon-project-2  (2026-06-27)
 
 ## Corpus Check
-- 85 files · ~137,812 words
+- 85 files · ~137,789 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 416 nodes · 756 edges · 33 communities (26 shown, 7 thin omitted)
+- 425 nodes · 777 edges · 33 communities (26 shown, 7 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6a2fb107`
+- Built from commit: `e83e3ac3`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -40,15 +40,15 @@
 
 ## God Nodes (most connected - your core abstractions)
 1. `execGit()` - 20 edges
-2. `api()` - 16 edges
-3. `Quick Start` - 15 edges
+2. `Quick Start` - 18 edges
+3. `api()` - 16 edges
 4. `checkoutAgentBranch()` - 12 edges
 5. `cn()` - 12 edges
 6. `cloneRepository()` - 11 edges
 7. `createBranch()` - 10 edges
 8. `commitAndPush()` - 10 edges
-9. `main()` - 9 edges
-10. `generateDetailedPlan()` - 9 edges
+9. `Autonomous Delivery App` - 10 edges
+10. `main()` - 9 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `parseDetailedPlan()` --calls--> `normalizeDetailedPlan()`  [INFERRED]
@@ -77,20 +77,20 @@ Cohesion: 0.1
 Nodes (31): loadProjectRepositories(), isMeaningfulDiffText(), listChangedFilesFromDiff(), ParsedDiffFile, parseUnifiedDiffByFile(), files, analyzeMultiRepo(), getMultiRepoDiffSummary() (+23 more)
 
 ### Community 3 - "Community 3"
+Cohesion: 0.14
+Nodes (32): applyEnvDefaults(), buildDevPackages(), checkPrerequisites(), commandExists(), dataDir, __dirname, ensureDataDirs(), ensureTemporalRunning() (+24 more)
+
+### Community 4 - "Community 4"
 Cohesion: 0.19
 Nodes (31): commitPushAndUpdatePrActivity(), bareDir, marker, other, workspace, buildAuthenticatedRepoUrl(), buildPublicRepoUrl(), checkoutBaseBranch() (+23 more)
 
-### Community 4 - "Community 4"
+### Community 5 - "Community 5"
 Cohesion: 0.14
 Nodes (25): createSession(), getSessionToken(), getUserFromSession(), requireUser(), getClient(), signalApprovePlan(), signalApproveReview(), signalRejectPlan() (+17 more)
 
-### Community 5 - "Community 5"
-Cohesion: 0.1
-Nodes (30): 1. Prerequisites, 2. Environment, 3. Start infrastructure, 4. Install & database, 5. Run all services, 6. Sign in, Autonomous Delivery App, Autonomous Delivery App (+22 more)
-
 ### Community 6 - "Community 6"
-Cohesion: 0.17
-Nodes (27): applyEnvDefaults(), buildDevPackages(), checkPrerequisites(), commandExists(), __dirname, installDependencies(), isPortInUse(), loadEnvFile() (+19 more)
+Cohesion: 0.1
+Nodes (33): 1. Prerequisites, 2. Environment, 3. Start infrastructure, 4. Install & database, 5. Run all services, 6. Sign in, Autonomous Delivery App, Autonomous Delivery App (+25 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.14
@@ -121,11 +121,11 @@ Cohesion: 0.36
 Nodes (7): ARTIFACTS, createGithubUserSession(), __dirname, loadEnv(), main(), ROOT, waitForTicketStatus()
 
 ### Community 14 - "Community 14"
-Cohesion: 0.4
+Cohesion: 0.33
 Nodes (3): __dirname, ports, root
 
 ## Knowledge Gaps
-- **103 isolated node(s):** `prisma`, `__dirname`, `ROOT`, `ARTIFACTS`, `__dirname` (+98 more)
+- **105 isolated node(s):** `prisma`, `__dirname`, `ROOT`, `ARTIFACTS`, `__dirname` (+100 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -133,13 +133,13 @@ Nodes (3): __dirname, ports, root
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `isMeaningfulDiffText()` connect `Community 2` to `Community 0`?**
-  _High betweenness centrality (0.144) - this node is a cross-community bridge._
+  _High betweenness centrality (0.138) - this node is a cross-community bridge._
 - **Why does `ChangeSummaryViewer()` connect `Community 0` to `Community 2`?**
-  _High betweenness centrality (0.137) - this node is a cross-community bridge._
+  _High betweenness centrality (0.131) - this node is a cross-community bridge._
 - **Why does `normalizeDetailedPlan()` connect `Community 8` to `Community 0`, `Community 7`?**
-  _High betweenness centrality (0.108) - this node is a cross-community bridge._
+  _High betweenness centrality (0.104) - this node is a cross-community bridge._
 - **What connects `prisma`, `__dirname`, `ROOT` to the rest of the system?**
-  _103 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _105 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

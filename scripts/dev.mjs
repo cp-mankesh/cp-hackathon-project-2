@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * One-command dev bootstrap:
- *   .env → docker compose → wait for infra → prisma → api + web + worker
+ * Start dev servers (assumes setup has been run at least once).
+ * Ensures Temporal is running, syncs DB, then starts api + web + worker.
  */
 import { spawn } from "node:child_process";
 import {
@@ -36,31 +36,21 @@ async function main() {
 
   loadProjectEnv({ createFromExample: true });
   await assertPortsFree();
-
   await startInfrastructure();
   setupDatabase();
   buildDevPackages();
 
-  console.log("\n✓ Infrastructure ready\n");
+  console.log("\n✓ Ready\n");
   console.log("  Web:         " + process.env.WEB_URL);
   console.log("  API:         " + process.env.API_URL);
   console.log("  Temporal UI: http://localhost:8080\n");
 
-  const child = spawn(
-    "npx",
-    [
-      "concurrently",
-      "-k",
-      "-n", "shared,agents,api,web,worker",
-      "-c", "cyan,magenta,blue,green,yellow",
-      "npm run dev -w @ados/shared",
-      "npm run dev -w @ados/agents",
-      "npm run dev -w @ados/api",
-      "npm run dev -w @ados/web",
-      "npm run dev -w @ados/temporal-worker",
-    ],
-    { cwd: root, stdio: "inherit", env: process.env, shell: process.platform === "win32" }
-  );
+  const child = spawn("npm", ["run", "dev:apps"], {
+    cwd: root,
+    stdio: "inherit",
+    env: process.env,
+    shell: process.platform === "win32",
+  });
 
   const shutdown = () => {
     child.kill("SIGTERM");

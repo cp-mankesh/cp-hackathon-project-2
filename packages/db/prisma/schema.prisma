@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -196,7 +196,7 @@ model AgentArtifact {
   id        String   @id @default(cuid())
   runId     String
   type      String
-  content   String   @db.Text
+  content   String
   createdAt DateTime @default(now())
 
   run WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
