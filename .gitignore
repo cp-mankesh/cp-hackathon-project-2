@@ -11,3 +11,4 @@ workspaces/
 .turbo/
 coverage/
 /graphify-out/
+.venv-docx/
