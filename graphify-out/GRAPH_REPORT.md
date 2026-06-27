@@ -1,16 +1,16 @@
 # Graph Report - cp-hackathon-project-2  (2026-06-27)
 
 ## Corpus Check
-- 265 files · ~181,578 words
+- 457 files · ~226,715 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 900 nodes · 2119 edges · 66 communities (53 shown, 13 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 14 edges (avg confidence: 0.8)
+- 1133 nodes · 3518 edges · 86 communities (73 shown, 13 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 26 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `66098e29`
+- Built from commit: `f14ce0a7`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -53,157 +53,177 @@
 - [[_COMMUNITY_Community 35|Community 35]]
 - [[_COMMUNITY_Community 36|Community 36]]
 - [[_COMMUNITY_Community 37|Community 37]]
+- [[_COMMUNITY_Community 38|Community 38]]
 - [[_COMMUNITY_Community 39|Community 39]]
+- [[_COMMUNITY_Community 40|Community 40]]
+- [[_COMMUNITY_Community 41|Community 41]]
+- [[_COMMUNITY_Community 43|Community 43]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `cn()` - 69 edges
-2. `routes` - 26 edges
-3. `Project Rules — Next.js, Prisma & PostgreSQL` - 21 edges
-4. `execGit()` - 20 edges
-5. `getSessionUser()` - 20 edges
-6. `Call Analyser — Project Plan` - 19 edges
-7. `buttonVariants` - 18 edges
-8. `userCan()` - 18 edges
-9. `Quick Start` - 18 edges
-10. `api()` - 16 edges
+1. `cn()` - 128 edges
+2. `routes` - 53 edges
+3. `getSessionUser()` - 41 edges
+4. `buttonVariants` - 37 edges
+5. `userCan()` - 37 edges
+6. `Card()` - 33 edges
+7. `CardHeader()` - 33 edges
+8. `CardTitle()` - 33 edges
+9. `CardDescription()` - 33 edges
+10. `CardContent()` - 33 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `parseDetailedPlan()` --calls--> `normalizeDetailedPlan()`  [INFERRED]
   apps/web/src/components/PlanViewer.tsx → packages/shared/src/plan-normalize.ts
 - `ChangeSummaryViewer()` --calls--> `isMeaningfulDiffText()`  [INFERRED]
   apps/web/src/components/ChangeSummaryViewer.tsx → packages/shared/src/diff-parse.ts
-- `TicketHubPage()` --calls--> `cn()`  [EXTRACTED]
-  apps/web/src/app/admin/tickets/page.tsx → workers/temporal/data/workspaces/cmqvwtrd60004cactf709yvgh/cp-mankesh__cp-hackathon-project-1/src/lib/utils.ts
-- `loadProjectRepositories()` --calls--> `resolveProjectRepositories()`  [INFERRED]
-  apps/api/src/routes/tickets.ts → packages/shared/src/repo-paths.ts
 - `commitPushAndUpdatePrActivity()` --calls--> `commitAndPush()`  [INFERRED]
   workers/temporal/src/activities/index.ts → packages/agents/src/index.ts
+- `commitPushAndUpdatePrActivity()` --calls--> `findOpenPullRequest()`  [INFERRED]
+  workers/temporal/src/activities/index.ts → packages/agents/src/index.ts
+- `commitPushAndUpdatePrActivity()` --calls--> `createPullRequest()`  [INFERRED]
+  workers/temporal/src/activities/index.ts → packages/agents/src/index.ts
 
-## Communities (66 total, 13 thin omitted)
+## Communities (86 total, 13 thin omitted)
 
 ### Community 0 - "Community 0"
-Cohesion: 0.05
-Nodes (84): commitPushAndUpdatePrActivity(), loadProjectRepositories(), bareDir, marker, other, workspace, formatAppliedChanges(), isMeaningfulDiffText() (+76 more)
+Cohesion: 0.08
+Nodes (35): AuthActionState, loginAction(), loginSchema, logoutAction(), registerCompanyAction(), registerSchema, HomePage(), AuthCard() (+27 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.07
-Nodes (44): setThemeCookieAction(), HomePage(), GET(), parseRangeHeader(), RouteParams, AuthCard(), getSessionUser(), CallDetailPage() (+36 more)
+Nodes (35): UserActionState, inviteSchema, inviteUserAction(), removeUserAction(), roleCanAdministerUsers(), updateUserRoleAction(), GET(), parseRangeHeader() (+27 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.07
-Nodes (62): UserActionState, inviteSchema, inviteUserAction(), removeUserAction(), roleCanAdministerUsers(), updateUserRoleAction(), Props, AGENT_SCORE_KEYS (+54 more)
+Cohesion: 0.05
+Nodes (85): bareDir, marker, other, workspace, formatAppliedChanges(), isMeaningfulDiffText(), listChangedFilesFromDiff(), ParsedDiffFile (+77 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.08
-Nodes (40): ACTION_POOL, AnalysisPipelineInput, AnalysisPipelineResult, analyzeTranscriptStub(), dimensionScore(), KEYWORD_POOL, NEGATIVE_POOL, POSITIVE_POOL (+32 more)
+Cohesion: 0.05
+Nodes (60): commitPushAndUpdatePrActivity(), createSession(), getSessionToken(), getUserFromSession(), requireUser(), decryptSecret(), encryptionKey(), encryptSecret() (+52 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.09
-Nodes (32): AuthActionState, loginAction(), loginSchema, logoutAction(), registerCompanyAction(), registerSchema, adminPermissions, memberPermissions (+24 more)
+Cohesion: 0.11
+Nodes (32): Props, Props, RecordingCard(), TranscriptLine(), FILLS, Props, tooltipStyle, DashboardCharts() (+24 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.1
-Nodes (28): createSession(), getSessionToken(), getUserFromSession(), requireUser(), getClient(), signalApprovePlan(), signalApproveReview(), signalRejectPlan() (+20 more)
+Cohesion: 0.18
+Nodes (24): AGENT_SCORE_KEYS, CallAudioTranscript(), CallDetail, CallDetailView(), Props, CallOverviewCharts(), CallsListTable(), Props (+16 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.06
-Nodes (34): 10. Data model (aligned with UI + SaaS), 11. Background processing (operational contract), 12. Configuration & secrets, 13.1 Scoring (100 points total), 13.2 Deliverables checklist (all required), 13. Evaluation criteria & deliverables (official), 14. Phased delivery (suggested), 15. Success criteria (merged checklist) (+26 more)
+Cohesion: 0.16
+Nodes (23): env, AnalysisLogPayload, LOG_ROOT, logAnalysisEvent(), LogLevel, readAudioFile(), resolveAudioPath(), resolveProjectRoot() (+15 more)
 
 ### Community 7 - "Community 7"
+Cohesion: 0.05
+Nodes (34): 10. Data model (aligned with UI + SaaS), 11. Background processing (operational contract), 12. Configuration & secrets, 13.1 Scoring (100 points total), 13.2 Deliverables checklist (all required), 13. Evaluation criteria & deliverables (official), 14. Phased delivery (suggested), 15. Success criteria (merged checklist) (+26 more)
+
+### Community 8 - "Community 8"
 Cohesion: 0.14
 Nodes (32): applyEnvDefaults(), buildDevPackages(), checkPrerequisites(), commandExists(), dataDir, __dirname, ensureDataDirs(), ensureTemporalRunning() (+24 more)
 
-### Community 8 - "Community 8"
+### Community 9 - "Community 9"
 Cohesion: 0.1
 Nodes (16): ChangeSummaryViewer(), parseChangeSummary(), parseDetailedPlan(), PlanViewer(), TicketConversationViewer(), ProjectRepository, TicketDetail, TicketDetailPage() (+8 more)
 
-### Community 9 - "Community 9"
+### Community 10 - "Community 10"
 Cohesion: 0.1
 Nodes (33): 1. Prerequisites, 2. Environment, 3. Start infrastructure, 4. Install & database, 5. Run all services, 6. Sign in, Autonomous Delivery App, Autonomous Delivery App (+25 more)
 
-### Community 10 - "Community 10"
+### Community 11 - "Community 11"
+Cohesion: 0.17
+Nodes (11): setThemeCookieAction(), fontBody, fontHeading, fontMono, metadata, RootLayout(), THEME_COOKIE, ThemeCookieValue (+3 more)
+
+### Community 12 - "Community 12"
+Cohesion: 0.07
+Nodes (24): 10. Data and validation, 11. Naming conventions, 12. Environment and configuration, 13. Security, 14. Performance, 15. Testing and quality, 16. Git and collaboration, 17. Documentation (+16 more)
+
+### Community 13 - "Community 13"
 Cohesion: 0.1
 Nodes (23): AGENT_MAX_RETRIES, AGENT_MAX_REVIEW_ROUNDS, AppliedChangeSummary, AppliedFileChange, DetailedPlan, FileChangePlan, ImplementResult, IntegrationType (+15 more)
 
-### Community 11 - "Community 11"
-Cohesion: 0.08
-Nodes (24): 10. Data and validation, 11. Naming conventions, 12. Environment and configuration, 13. Security, 14. Performance, 15. Testing and quality, 16. Git and collaboration, 17. Documentation (+16 more)
-
-### Community 12 - "Community 12"
+### Community 14 - "Community 14"
 Cohesion: 0.12
 Nodes (16): activities, PlanApprovalPayload, PlanRejectionPayload, PlanRevisionPayload, ReviewApprovalPayload, ReviewRejectionPayload, TicketActivities, TicketWorkflowInput (+8 more)
 
-### Community 13 - "Community 13"
-Cohesion: 0.19
-Nodes (10): fontBody, fontHeading, fontMono, metadata, RootLayout(), THEME_COOKIE, ThemeCookieValue, AppProviders() (+2 more)
-
-### Community 14 - "Community 14"
-Cohesion: 0.15
-Nodes (8): Ticket, priorityColor(), statusColor(), GitHubIssue, Project, ProjectRepository, Ticket, TicketHubPage()
-
 ### Community 15 - "Community 15"
-Cohesion: 0.16
-Nodes (5): PublicProject, api(), GhRepo, Project, ProjectRepository
+Cohesion: 0.32
+Nodes (15): ACTION_POOL, AnalysisPipelineInput, AnalysisPipelineResult, analyzeTranscriptStub(), dimensionScore(), KEYWORD_POOL, NEGATIVE_POOL, POSITIVE_POOL (+7 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.22
+Cohesion: 0.35
 Nodes (15): DropdownMenu(), DropdownMenuCheckboxItem(), DropdownMenuContent(), DropdownMenuGroup(), DropdownMenuItem(), DropdownMenuLabel(), DropdownMenuPortal(), DropdownMenuRadioGroup() (+7 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.12
+Cohesion: 0.11
 Nodes (14): Auth & tenancy, Call analysis flow, Call Intelligence Platform, code:bash (cp .env.example .env), code:bash (npm install), code:bash (npm run db:migrate), code:bash (npm run dev), code:bash (npm run worker) (+6 more)
 
 ### Community 18 - "Community 18"
+Cohesion: 0.16
+Nodes (8): Ticket, priorityColor(), statusColor(), GitHubIssue, Project, ProjectRepository, Ticket, TicketHubPage()
+
+### Community 19 - "Community 19"
+Cohesion: 0.4
+Nodes (8): adminPermissions, memberPermissions, CrudFlags, fullAccess, noAccess, PermissionModule, permissionModules, readOnly
+
+### Community 20 - "Community 20"
+Cohesion: 0.19
+Nodes (3): AuthUser, PublicProject, api()
+
+### Community 21 - "Community 21"
 Cohesion: 0.19
 Nodes (8): results, reviews, parseReviewArtifacts(), ReviewArtifactItem, ReviewNotesViewer(), parseTestArtifacts(), TestArtifactItem, TestResultsViewer()
 
-### Community 19 - "Community 19"
+### Community 22 - "Community 22"
+Cohesion: 0.44
+Nodes (10): Sheet(), SheetClose(), SheetContent(), SheetDescription(), SheetFooter(), SheetHeader(), SheetOverlay(), SheetPortal() (+2 more)
+
+### Community 23 - "Community 23"
 Cohesion: 0.29
 Nodes (8): ARTIFACTS, buildReportHtml(), __dirname, execFileAsync, main(), recordVideo(), ROOT, runTests()
 
-### Community 20 - "Community 20"
+### Community 25 - "Community 25"
+Cohesion: 0.53
+Nodes (6): Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage()
+
+### Community 26 - "Community 26"
 Cohesion: 0.2
 Nodes (9): Code fixes applied during this session, code:bash (# E2E flow (headed browser + video)), End-to-End Test Report — Total User Dashboard Card, Flow exercised (browser automation), How to replay, Screenshots, Ticket, Unit tests (+1 more)
 
-### Community 21 - "Community 21"
+### Community 27 - "Community 27"
 Cohesion: 0.31
 Nodes (7): derivePlanStatus(), deriveTestStatus(), parseTestPassed(), RunArtifact, RunLike, TicketLike, TicketStatusChip
 
-### Community 22 - "Community 22"
+### Community 28 - "Community 28"
 Cohesion: 0.36
 Nodes (7): ARTIFACTS, createGithubUserSession(), __dirname, loadEnv(), main(), ROOT, waitForTicketStatus()
 
-### Community 23 - "Community 23"
-Cohesion: 0.43
-Nodes (6): Avatar(), AvatarBadge(), AvatarFallback(), AvatarGroup(), AvatarGroupCount(), AvatarImage()
+### Community 29 - "Community 29"
+Cohesion: 0.29
+Nodes (5): GhRepo, LocalRepoInfo, PendingLocalRepo, Project, ProjectRepository
 
-### Community 24 - "Community 24"
-Cohesion: 0.48
-Nodes (5): Progress(), ProgressIndicator(), ProgressLabel(), ProgressTrack(), ProgressValue()
-
-### Community 25 - "Community 25"
+### Community 30 - "Community 30"
 Cohesion: 0.33
 Nodes (3): __dirname, ports, root
 
 ## Knowledge Gaps
-- **167 isolated node(s):** `prisma`, `__dirname`, `ROOT`, `ARTIFACTS`, `__dirname` (+162 more)
+- **173 isolated node(s):** `prisma`, `__dirname`, `ROOT`, `ARTIFACTS`, `__dirname` (+168 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `cn()` connect `Community 1` to `Community 2`, `Community 4`, `Community 8`, `Community 13`, `Community 14`, `Community 16`, `Community 18`, `Community 23`, `Community 24`, `Community 28`?**
-  _High betweenness centrality (0.306) - this node is a cross-community bridge._
-- **Why does `isMeaningfulDiffText()` connect `Community 0` to `Community 8`?**
-  _High betweenness centrality (0.156) - this node is a cross-community bridge._
-- **Why does `ChangeSummaryViewer()` connect `Community 8` to `Community 0`?**
-  _High betweenness centrality (0.155) - this node is a cross-community bridge._
+- **Why does `cn()` connect `Community 0` to `Community 32`, `Community 1`, `Community 4`, `Community 5`, `Community 9`, `Community 11`, `Community 16`, `Community 18`, `Community 21`, `Community 22`, `Community 25`, `Community 29`?**
+  _High betweenness centrality (0.360) - this node is a cross-community bridge._
+- **Why does `isMeaningfulDiffText()` connect `Community 2` to `Community 9`?**
+  _High betweenness centrality (0.175) - this node is a cross-community bridge._
+- **Why does `ChangeSummaryViewer()` connect `Community 9` to `Community 2`?**
+  _High betweenness centrality (0.175) - this node is a cross-community bridge._
 - **What connects `prisma`, `__dirname`, `ROOT` to the rest of the system?**
-  _167 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _173 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.05 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.08 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.07 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.07 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05 - nodes in this community are weakly interconnected._

@@ -15,13 +15,19 @@ import {
   getRepoWorkspace,
   implementMultiRepoWithOpenAI,
   implementWithOpenHands,
+  prepareLocalRepository,
   reviewCode,
   runMultiRepoTests,
   runTests,
   summarizeAppliedChanges,
   validateChanges as validateRepoChanges,
 } from "@ados/agents";
-import { ticketRepoWorkspace, resolveProjectRepositories } from "@ados/shared";
+import {
+  isGitHubRemoteUrl,
+  parseGitHubRepoFromRemote,
+  resolveProjectRepositories,
+  resolveRepoWorkspace,
+} from "@ados/shared";
 import type { TicketActivities } from "../types";
 
 const workspacesDir = process.env.WORKSPACES_DIR ?? "/tmp/ados-workspaces";
@@ -36,9 +42,20 @@ async function commitPushAndUpdatePrActivity(input: {
   ticketId: string;
   runId: string;
   githubToken?: string;
+  gitToken?: string;
+  remoteUrl?: string | null;
+  gitUsername?: string | null;
 }) {
-  if (!input.githubToken) {
-    throw new Error("GitHub token required to push and create PR.");
+  const pushToken = input.gitToken ?? input.githubToken;
+  const githubRepoFullName =
+    (input.remoteUrl ? parseGitHubRepoFromRemote(input.remoteUrl) : null) ??
+    (input.repoFullName.includes("/") && !input.repoFullName.startsWith("local/")
+      ? input.repoFullName
+      : null);
+  const canCreatePr = !!githubRepoFullName && !!pushToken && isGitHubRemoteUrl(input.remoteUrl ?? `https://github.com/${githubRepoFullName}.git`);
+
+  if (input.remoteUrl && !pushToken) {
+    throw new Error("Git credentials required to push changes.");
   }
 
   const existingPr = await prisma.pullRequest.findUnique({
@@ -54,8 +71,10 @@ async function commitPushAndUpdatePrActivity(input: {
     workspacePath: input.workspacePath,
     branchName: input.branchName,
     message: existingPr ? `[Agent] Update: ${input.title}` : `[Agent] ${input.title}`,
-    token: input.githubToken,
-    repoFullName: input.repoFullName,
+    token: pushToken,
+    repoFullName: githubRepoFullName ?? input.repoFullName,
+    remoteUrl: input.remoteUrl,
+    gitUsername: input.gitUsername,
   });
 
   if (existingPr) {
@@ -74,10 +93,26 @@ async function commitPushAndUpdatePrActivity(input: {
     };
   }
 
-  if (pushResult.alreadyUpToDate && input.githubToken) {
+  if (!canCreatePr) {
+    const message = pushResult.pushed
+      ? `Pushed branch "${input.branchName}" to remote.`
+      : pushResult.alreadyUpToDate
+        ? `Branch "${input.branchName}" is already up to date locally.`
+        : `Committed changes locally on branch "${input.branchName}".`;
+    await prisma.workflowEvent.create({
+      data: {
+        runId: input.runId,
+        step: "push",
+        message,
+      },
+    });
+    return { number: 0, url: input.remoteUrl ?? "" };
+  }
+
+  if (pushResult.alreadyUpToDate && pushToken && githubRepoFullName) {
     const linked = await findOpenPullRequest({
-      token: input.githubToken,
-      repoFullName: input.repoFullName,
+      token: pushToken,
+      repoFullName: githubRepoFullName,
       branchName: input.branchName,
     });
     if (linked) {
@@ -102,12 +137,12 @@ async function commitPushAndUpdatePrActivity(input: {
     }
   }
 
-  const [owner, repo] = input.repoFullName.split("/");
+  const [owner, repo] = githubRepoFullName!.split("/");
   const branchRes = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(input.branchName)}`,
     {
       headers: {
-        Authorization: `Bearer ${input.githubToken}`,
+        Authorization: `Bearer ${pushToken}`,
         Accept: "application/vnd.github+json",
       },
     }
@@ -117,8 +152,8 @@ async function commitPushAndUpdatePrActivity(input: {
   }
 
   const pr = await createPullRequest({
-    token: input.githubToken,
-    repoFullName: input.repoFullName,
+    token: pushToken!,
+    repoFullName: githubRepoFullName!,
     branchName: input.branchName,
     baseBranch: input.defaultBranch,
     title: input.title,
@@ -245,12 +280,14 @@ export const activities: TicketActivities = {
 
   async syncAgentBranch(input) {
     for (const repo of input.repositories) {
-      const ws = ticketRepoWorkspace(input.ticketId, repo.repoFullName, workspacesDir);
+      const ws = resolveRepoWorkspace(input.ticketId, repo, workspacesDir);
       await checkoutAgentBranch({
         workspacePath: ws,
         branchName: input.branchName,
         repoFullName: repo.repoFullName,
-        token: input.githubToken,
+        token: repo.gitToken ?? input.githubToken,
+        remoteUrl: repo.remoteUrl ?? undefined,
+        gitUsername: repo.gitUsername ?? undefined,
       });
     }
   },
@@ -270,23 +307,39 @@ export const activities: TicketActivities = {
       }
     }
 
-    const repoNames = input.repositories.map((r) => r.repoFullName).join(", ");
+    const repoNames = input.repositories
+      .map((r) => (r.sourceType === "local" && r.localPath ? r.localPath : r.repoFullName))
+      .join(", ");
     await prisma.workflowEvent.create({
       data: {
         runId: input.runId,
         step: "clone",
-        message: `Cloning ${repoNames}…`,
+        message: `Preparing ${repoNames}…`,
       },
     });
 
     for (const repo of input.repositories) {
-      const workspacePath = ticketRepoWorkspace(input.ticketId, repo.repoFullName, workspacesDir);
+      const workspacePath = resolveRepoWorkspace(input.ticketId, repo, workspacesDir);
       try {
+        if (repo.sourceType === "local" && repo.localPath) {
+          await prepareLocalRepository(repo.localPath);
+          await prisma.workflowEvent.create({
+            data: {
+              runId: input.runId,
+              step: "clone",
+              message: `Using local repository ${repo.localPath}`,
+            },
+          });
+          continue;
+        }
+
         await cloneRepository({
           repoFullName: repo.repoFullName,
-          token,
+          token: repo.gitToken ?? token,
           workspacePath,
           branch: repo.defaultBranch,
+          remoteUrl: repo.remoteUrl ?? undefined,
+          gitUsername: repo.gitUsername ?? undefined,
         });
         await prisma.workflowEvent.create({
           data: {
@@ -311,10 +364,12 @@ export const activities: TicketActivities = {
 
   async createBranches(ticketId, branchName, repositories, githubToken) {
     for (const repo of repositories) {
-      const ws = ticketRepoWorkspace(ticketId, repo.repoFullName, workspacesDir);
+      const ws = resolveRepoWorkspace(ticketId, repo, workspacesDir);
       await createBranch(ws, branchName, {
         repoFullName: repo.repoFullName,
-        token: githubToken,
+        token: repo.gitToken ?? githubToken,
+        remoteUrl: repo.remoteUrl,
+        gitUsername: repo.gitUsername,
       });
     }
     await prisma.ticket.update({
@@ -375,7 +430,7 @@ export const activities: TicketActivities = {
 
     const repo = input.repositories[0];
     return implementWithOpenHands({
-      workspacePath: getRepoWorkspace(input.ticketId, repo.repoFullName),
+      workspacePath: getRepoWorkspace(input.ticketId, repo),
       plan: input.plan,
       ticketTitle: input.title,
       ticketBody: input.body,
@@ -405,7 +460,7 @@ export const activities: TicketActivities = {
     const files: string[] = [];
 
     for (const repo of repositories) {
-      const ws = getRepoWorkspace(ticketId, repo.repoFullName);
+      const ws = getRepoWorkspace(ticketId, repo);
       const result = await validateRepoChanges(ws);
       hasChanges = hasChanges || result.hasChanges;
       meaningful = meaningful || result.meaningful;
@@ -430,7 +485,7 @@ export const activities: TicketActivities = {
     const results: Array<{ number: number; url: string; repoFullName: string }> = [];
 
     for (const repo of input.repositories) {
-      const ws = ticketRepoWorkspace(input.ticketId, repo.repoFullName, workspacesDir);
+      const ws = resolveRepoWorkspace(input.ticketId, repo, workspacesDir);
       const pr = await commitPushAndUpdatePrActivity({
         workspacePath: ws,
         branchName: input.branchName,
@@ -441,6 +496,9 @@ export const activities: TicketActivities = {
         ticketId: input.ticketId,
         runId: input.runId,
         githubToken: input.githubToken,
+        gitToken: repo.gitToken ?? undefined,
+        remoteUrl: repo.remoteUrl,
+        gitUsername: repo.gitUsername,
       });
       results.push({ ...pr, repoFullName: repo.repoFullName });
     }

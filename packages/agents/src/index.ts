@@ -17,11 +17,44 @@ import {
   countCommitsAheadOfRemote,
   countCommitsBehindRemote,
   rebaseOntoRemoteBranch,
+  buildAuthenticatedRemoteUrl,
+  setOriginRemoteUrl,
 } from "./git";
+import { isGitHubRemoteUrl } from "@ados/shared";
 
 const execFileAsync = promisify(execFile);
 
 const STUB_FILES = new Set(["AGENT_WORKLOG.md"]);
+
+export interface RepoPushAuth {
+  token?: string;
+  repoFullName?: string;
+  remoteUrl?: string | null;
+  gitUsername?: string | null;
+}
+
+function resolveAuthenticatedOriginUrl(auth: RepoPushAuth): string | null {
+  if (auth.token && auth.repoFullName && !auth.remoteUrl) {
+    return buildAuthenticatedRepoUrl(auth.repoFullName, auth.token);
+  }
+  if (auth.token && auth.remoteUrl) {
+    if (isGitHubRemoteUrl(auth.remoteUrl)) {
+      return buildAuthenticatedRemoteUrl(auth.remoteUrl, "x-access-token", auth.token);
+    }
+    if (auth.gitUsername) {
+      return buildAuthenticatedRemoteUrl(auth.remoteUrl, auth.gitUsername, auth.token);
+    }
+  }
+  if (auth.remoteUrl) return auth.remoteUrl;
+  if (auth.repoFullName) return buildPublicRepoUrl(auth.repoFullName);
+  return null;
+}
+
+export async function prepareLocalRepository(localPath: string): Promise<void> {
+  if (!(await isGitRepository(localPath))) {
+    throw new Error(`Local path is not a Git repository: ${localPath}`);
+  }
+}
 
 export async function validateChanges(workspacePath: string): Promise<{
   hasChanges: boolean;
@@ -47,19 +80,31 @@ export async function cloneRepository(input: {
   token?: string;
   workspacePath: string;
   branch?: string;
+  remoteUrl?: string;
+  gitUsername?: string;
 }): Promise<void> {
   await fs.mkdir(path.dirname(input.workspacePath), { recursive: true });
 
   if (
     (await isGitRepository(input.workspacePath)) &&
-    (await repoMatchesOrigin(input.workspacePath, input.repoFullName))
+    (input.remoteUrl
+      ? true
+      : await repoMatchesOrigin(input.workspacePath, input.repoFullName))
   ) {
     return;
   }
 
   await cleanWorkspace(input.workspacePath);
 
-  const publicUrl = buildPublicRepoUrl(input.repoFullName);
+  const authRemoteUrl = input.remoteUrl
+    ? resolveAuthenticatedOriginUrl({
+        token: input.token,
+        repoFullName: input.repoFullName,
+        remoteUrl: input.remoteUrl,
+        gitUsername: input.gitUsername,
+      })
+    : null;
+  const publicUrl = authRemoteUrl ?? buildPublicRepoUrl(input.repoFullName);
   const useFeatureBranch =
     input.branch && input.branch !== "main" && input.branch !== "master";
   const cloneArgs = (repoUrl: string) =>
@@ -80,15 +125,19 @@ export async function cloneRepository(input: {
   let lastError: unknown;
 
   if (input.token) {
-    const authUrl = buildAuthenticatedRepoUrl(input.repoFullName, input.token);
-    try {
-      await execGit(cloneArgs(authUrl), { timeout: 120_000 });
-      cloned = true;
-    } catch (err) {
-      lastError = err;
-      await cleanWorkspace(input.workspacePath);
-      if (!isGitAuthError(err)) {
-        throw err;
+    const authUrl =
+      authRemoteUrl ??
+      (input.repoFullName ? buildAuthenticatedRepoUrl(input.repoFullName, input.token) : null);
+    if (authUrl) {
+      try {
+        await execGit(cloneArgs(authUrl), { timeout: 120_000 });
+        cloned = true;
+      } catch (err) {
+        lastError = err;
+        await cleanWorkspace(input.workspacePath);
+        if (!isGitAuthError(err)) {
+          throw err;
+        }
       }
     }
   }
@@ -114,15 +163,11 @@ export async function cloneRepository(input: {
 export async function createBranch(
   workspacePath: string,
   branchName: string,
-  options?: { repoFullName?: string; token?: string }
+  options?: RepoPushAuth
 ): Promise<void> {
-  if (options?.token && options?.repoFullName) {
-    const remoteUrl = buildAuthenticatedRepoUrl(options.repoFullName, options.token);
-    try {
-      await execGit(["remote", "set-url", "origin", remoteUrl], { cwd: workspacePath });
-    } catch {
-      await execGit(["remote", "add", "origin", remoteUrl], { cwd: workspacePath });
-    }
+  const authUrl = options ? resolveAuthenticatedOriginUrl(options) : null;
+  if (authUrl) {
+    await setOriginRemoteUrl(workspacePath, authUrl);
 
     try {
       await fetchRemoteBranch(workspacePath, branchName);
@@ -130,8 +175,10 @@ export async function createBranch(
         await checkoutAgentBranch({
           workspacePath,
           branchName,
-          repoFullName: options.repoFullName,
-          token: options.token,
+          repoFullName: options?.repoFullName ?? "",
+          token: options?.token,
+          remoteUrl: options?.remoteUrl ?? undefined,
+          gitUsername: options?.gitUsername ?? undefined,
         });
         return;
       }
@@ -165,32 +212,36 @@ export async function checkoutAgentBranch(input: {
   branchName: string;
   repoFullName: string;
   token?: string;
+  remoteUrl?: string;
+  gitUsername?: string;
 }): Promise<void> {
   const { workspacePath, branchName, repoFullName, token } = input;
   const remoteRef = `refs/remotes/origin/${branchName}`;
 
   if (!(await isGitRepository(workspacePath))) {
-    if (!token) {
-      throw new Error("GitHub token required to clone agent branch.");
+    if (!token && !input.remoteUrl) {
+      throw new Error("Git credentials required to clone agent branch.");
     }
     await cloneRepository({
       repoFullName,
       token,
       workspacePath,
       branch: branchName,
+      remoteUrl: input.remoteUrl ?? undefined,
+      gitUsername: input.gitUsername ?? undefined,
     });
     return;
   }
 
-  const remoteUrl = token
-    ? buildAuthenticatedRepoUrl(repoFullName, token)
-    : buildPublicRepoUrl(repoFullName);
+  const authUrl = resolveAuthenticatedOriginUrl({
+    token,
+    repoFullName,
+    remoteUrl: input.remoteUrl,
+    gitUsername: input.gitUsername,
+  });
+  const remoteUrl = authUrl ?? buildPublicRepoUrl(repoFullName);
 
-  try {
-    await execGit(["remote", "set-url", "origin", remoteUrl], { cwd: workspacePath });
-  } catch {
-    await execGit(["remote", "add", "origin", remoteUrl], { cwd: workspacePath });
-  }
+  await setOriginRemoteUrl(workspacePath, remoteUrl);
 
   try {
     await fetchRemoteBranch(workspacePath, branchName);
@@ -205,6 +256,8 @@ export async function checkoutAgentBranch(input: {
         token,
         workspacePath,
         branch: branchName,
+        remoteUrl: input.remoteUrl,
+        gitUsername: input.gitUsername,
       });
       return;
     }
@@ -226,23 +279,17 @@ export async function checkoutAgentBranch(input: {
   }
 }
 
-export async function commitAndPush(input: {
-  workspacePath: string;
-  branchName: string;
-  message: string;
-  token?: string;
-  repoFullName: string;
-}): Promise<{ pushed: boolean; commitSha?: string; alreadyUpToDate?: boolean }> {
-  if (!input.token) {
-    throw new Error("GitHub token required to push changes.");
-  }
-
-  const repoUrl = buildAuthenticatedRepoUrl(input.repoFullName, input.token);
-
-  try {
-    await execGit(["remote", "set-url", "origin", repoUrl], { cwd: input.workspacePath });
-  } catch {
-    await execGit(["remote", "add", "origin", repoUrl], { cwd: input.workspacePath });
+export async function commitAndPush(
+  input: {
+    workspacePath: string;
+    branchName: string;
+    message: string;
+    repoFullName: string;
+  } & RepoPushAuth
+): Promise<{ pushed: boolean; commitSha?: string; alreadyUpToDate?: boolean }> {
+  const authUrl = resolveAuthenticatedOriginUrl(input);
+  if (authUrl) {
+    await setOriginRemoteUrl(input.workspacePath, authUrl);
   }
 
   await execGit(["add", "-A"], { cwd: input.workspacePath });
@@ -256,12 +303,20 @@ export async function commitAndPush(input: {
     const rev = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: input.workspacePath });
     const commitSha = rev.stdout.trim();
 
+    if (!authUrl || !input.token) {
+      return { pushed: false, commitSha };
+    }
+
     await pushBranchHead({
       workspacePath: input.workspacePath,
       branchName: input.branchName,
     });
 
     return { pushed: true, commitSha };
+  }
+
+  if (!authUrl || !input.token) {
+    return { pushed: false, alreadyUpToDate: true };
   }
 
   try {

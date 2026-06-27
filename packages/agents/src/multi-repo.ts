@@ -5,7 +5,7 @@ import {
   encodeRepoFilePath,
   groupFilesByRepo,
   isMeaningfulDiffText,
-  ticketRepoWorkspace,
+  resolveRepoWorkspace,
   type ProjectRepositoryInfo,
 } from "@ados/shared";
 import { analyzeRepo, getDiffSummary, runTests } from "./openhands";
@@ -14,8 +14,11 @@ import type { ImplementResult } from "@ados/shared";
 
 const workspacesDir = process.env.WORKSPACES_DIR ?? "/tmp/ados-workspaces";
 
-export function getRepoWorkspace(ticketId: string, repoFullName: string): string {
-  return ticketRepoWorkspace(ticketId, repoFullName, workspacesDir);
+export function getRepoWorkspace(ticketId: string, repo: ProjectRepositoryInfo | string): string {
+  if (typeof repo === "string") {
+    return resolveRepoWorkspace(ticketId, { repoFullName: repo, defaultBranch: "main" }, workspacesDir);
+  }
+  return resolveRepoWorkspace(ticketId, repo, workspacesDir);
 }
 
 export async function analyzeMultiRepo(
@@ -32,7 +35,7 @@ export async function analyzeMultiRepo(
   const relevant = new Set<string>();
 
   for (const repo of repositories) {
-    const ws = getRepoWorkspace(ticketId, repo.repoFullName);
+    const ws = getRepoWorkspace(ticketId, repo);
     try {
       await fs.access(ws);
     } catch {
@@ -62,7 +65,7 @@ export async function getMultiRepoDiffSummary(
 ): Promise<string> {
   const parts: string[] = [];
   for (const repo of repositories) {
-    const ws = getRepoWorkspace(ticketId, repo.repoFullName);
+    const ws = getRepoWorkspace(ticketId, repo);
     try {
       const diff = await getDiffSummary(ws, repo.defaultBranch);
       if (isMeaningfulDiffText(diff)) {
@@ -84,7 +87,7 @@ export async function runMultiRepoTests(
   let lastCommand = "none";
 
   for (const repo of repositories) {
-    const ws = getRepoWorkspace(ticketId, repo.repoFullName);
+    const ws = getRepoWorkspace(ticketId, repo);
     try {
       await fs.access(path.join(ws, "package.json"));
     } catch {

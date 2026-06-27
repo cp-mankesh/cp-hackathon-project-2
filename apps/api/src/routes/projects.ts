@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "@ados/db";
+import { isGitHubRemoteUrl } from "@ados/shared";
 import { createSession, getUserFromSession, getSessionToken, requireUser, SESSION_COOKIE } from "../lib/auth";
+import { encryptSecret } from "../lib/crypto";
+import { inspectLocalRepository } from "../lib/local-repo";
+import { stripRepositorySecrets } from "../lib/repo-auth";
 
 const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
 const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
@@ -22,6 +26,16 @@ type ProjectRepoLink = {
   repoFullName: string;
 };
 
+function groupRepoLinksByRepo(links: ProjectRepoLink[]): Map<string, ProjectRepoLink[]> {
+  const grouped = new Map<string, ProjectRepoLink[]>();
+  for (const link of links) {
+    const list = grouped.get(link.repoFullName) ?? [];
+    list.push(link);
+    grouped.set(link.repoFullName, list);
+  }
+  return grouped;
+}
+
 async function getUserProjectRepos(userId: string, projectId?: string): Promise<ProjectRepoLink[]> {
   const projects = await prisma.project.findMany({
     where: { userId, ...(projectId ? { id: projectId } : {}) },
@@ -32,6 +46,7 @@ async function getUserProjectRepos(userId: string, projectId?: string): Promise<
   for (const project of projects) {
     if (project.repositories.length > 0) {
       for (const repo of project.repositories) {
+        if (repo.sourceType === "local") continue;
         if (repo.repoFullName !== "demo/sample-app") {
           links.push({ projectId: project.id, repoFullName: repo.repoFullName });
         }
@@ -250,10 +265,24 @@ export async function projectRoutes(app: FastifyInstance) {
     return {
       projects: projects.map((p) => ({
         ...p,
+        repositories: p.repositories.map(stripRepositorySecrets),
         openTickets: p.tickets.length,
         ticketCount: p._count.tickets,
       })),
     };
+  });
+
+  app.post("/api/local/validate", async (request, reply) => {
+    await requireUser(request);
+    const body = z.object({ localPath: z.string().min(1) }).parse(request.body);
+    try {
+      const info = await inspectLocalRepository(body.localPath);
+      return info;
+    } catch (err) {
+      const statusCode = (err as { statusCode?: number }).statusCode ?? 400;
+      const message = err instanceof Error ? err.message : "Invalid local repository";
+      return reply.status(statusCode).send({ error: message });
+    }
   });
 
   app.get("/api/projects/public", async () => {
@@ -335,26 +364,34 @@ export async function projectRoutes(app: FastifyInstance) {
     );
 
     const issues = [];
-    for (const link of repoLinks) {
-      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, link.repoFullName);
+    const groupedLinks = groupRepoLinksByRepo(repoLinks);
+    for (const [repoFullName, links] of groupedLinks) {
+      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, repoFullName);
       for (const issue of repoIssues) {
-        const key = `${link.projectId}:${issue.number}`;
+        const importedLink = links.find((link) =>
+          importedByKey.has(`${link.projectId}:${issue.number}`)
+        );
+        const targetProjectId = importedLink?.projectId ?? links[0]!.projectId;
+        const ticketId = importedLink
+          ? importedByKey.get(`${importedLink.projectId}:${issue.number}`)
+          : undefined;
+
         issues.push({
           number: issue.number,
           title: issue.title,
           body: issue.body ?? "",
           htmlUrl: issue.html_url,
           state: issue.state,
-          repoFullName: link.repoFullName,
-          projectId: link.projectId,
-          imported: importedByKey.has(key),
-          ticketId: importedByKey.get(key),
+          repoFullName,
+          projectId: targetProjectId,
+          imported: !!ticketId,
+          ticketId,
         });
       }
     }
 
     issues.sort((a, b) => b.number - a.number);
-    return { issues, repoCount: repoLinks.length };
+    return { issues, repoCount: groupedLinks.size };
   });
 
   app.post("/api/github/sync", async (request, reply) => {
@@ -377,20 +414,25 @@ export async function projectRoutes(app: FastifyInstance) {
     let created = 0;
     let updated = 0;
 
-    for (const link of repoLinks) {
-      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, link.repoFullName);
+    const groupedLinks = groupRepoLinksByRepo(repoLinks);
+    for (const [repoFullName, links] of groupedLinks) {
+      const repoIssues = await fetchOpenGitHubIssues(integration.accessToken, repoFullName);
+      const importTargets = body.projectId ? links : [links[0]!];
+
       for (const issue of repoIssues) {
-        const existing = await prisma.ticket.findFirst({
-          where: {
-            projectId: link.projectId,
-            source: "github",
-            externalId: String(issue.number),
-          },
-        });
-        const ticket = await upsertGitHubIssueTicket({ projectId: link.projectId, issue });
-        tickets.push(ticket);
-        if (existing) updated += 1;
-        else created += 1;
+        for (const link of importTargets) {
+          const existing = await prisma.ticket.findFirst({
+            where: {
+              projectId: link.projectId,
+              source: "github",
+              externalId: String(issue.number),
+            },
+          });
+          const ticket = await upsertGitHubIssueTicket({ projectId: link.projectId, issue });
+          tickets.push(ticket);
+          if (existing) updated += 1;
+          else created += 1;
+        }
       }
     }
 
@@ -450,9 +492,14 @@ export async function projectRoutes(app: FastifyInstance) {
     repositories: z
       .array(
         z.object({
-          repoFullName: z.string(),
+          sourceType: z.enum(["github", "local"]).default("github"),
+          repoFullName: z.string().optional(),
+          localPath: z.string().optional(),
           defaultBranch: z.string().default("main"),
           label: z.string().optional(),
+          remoteUrl: z.string().optional(),
+          gitUsername: z.string().optional(),
+          gitToken: z.string().optional(),
         })
       )
       .min(1),
@@ -469,25 +516,82 @@ export async function projectRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "A project with this name already exists." });
     }
 
+    const normalizedRepos = [];
+    for (const repo of body.repositories) {
+      if (repo.sourceType === "local") {
+        if (!repo.localPath?.trim()) {
+          return reply.status(400).send({ error: "Local path is required for local repositories." });
+        }
+        let info;
+        try {
+          info = await inspectLocalRepository(repo.localPath.trim());
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Invalid local repository";
+          return reply.status(400).send({ error: message });
+        }
+        const remoteUrl = repo.remoteUrl ?? info.remoteUrl ?? undefined;
+        const requiresCredentials = !!remoteUrl && !isGitHubRemoteUrl(remoteUrl);
+        if (requiresCredentials && (!repo.gitUsername?.trim() || !repo.gitToken?.trim())) {
+          return reply.status(400).send({
+            error: "Git username and token are required to push to non-GitHub remotes.",
+          });
+        }
+        normalizedRepos.push({
+          sourceType: "local",
+          repoFullName: info.repoFullName,
+          localPath: info.localPath,
+          defaultBranch: repo.defaultBranch || info.defaultBranch,
+          label: repo.label ?? info.label,
+          remoteUrl,
+          gitUsername: repo.gitUsername?.trim() || null,
+          gitToken: repo.gitToken?.trim() ? encryptSecret(repo.gitToken.trim()) : null,
+        });
+      } else {
+        if (!repo.repoFullName?.trim()) {
+          return reply.status(400).send({ error: "Repository name is required for GitHub projects." });
+        }
+        normalizedRepos.push({
+          sourceType: "github",
+          repoFullName: repo.repoFullName.trim(),
+          localPath: null,
+          defaultBranch: repo.defaultBranch,
+          label: repo.label ?? repo.repoFullName.split("/").pop(),
+          remoteUrl: null,
+          gitUsername: null,
+          gitToken: null,
+        });
+      }
+    }
+
     const project = await prisma.project.create({
       data: {
         userId: user.id,
         name: body.name,
         description: body.description,
-        repoFullName: body.repositories[0]?.repoFullName,
-        defaultBranch: body.repositories[0]?.defaultBranch ?? "main",
+        repoFullName: normalizedRepos[0]?.repoFullName,
+        defaultBranch: normalizedRepos[0]?.defaultBranch ?? "main",
         repositories: {
-          create: body.repositories.map((repo, index) => ({
+          create: normalizedRepos.map((repo, index) => ({
             repoFullName: repo.repoFullName,
             defaultBranch: repo.defaultBranch,
             label: repo.label,
             sortOrder: index,
+            sourceType: repo.sourceType,
+            localPath: repo.localPath,
+            remoteUrl: repo.remoteUrl,
+            gitUsername: repo.gitUsername,
+            gitToken: repo.gitToken,
           })),
         },
       },
       include: { repositories: { orderBy: { sortOrder: "asc" } } },
     });
-    return { project };
+    return {
+      project: {
+        ...project,
+        repositories: project.repositories.map(stripRepositorySecrets),
+      },
+    };
   });
 
   app.delete("/api/projects/:id", async (request) => {

@@ -8,6 +8,8 @@ import { api } from "@/lib/api";
 interface ProjectRepository {
   repoFullName: string;
   label?: string | null;
+  sourceType?: string;
+  localPath?: string | null;
 }
 
 interface Project {
@@ -19,14 +21,21 @@ interface Project {
 
 function projectLabel(p: Project) {
   if (p.repositories.length > 0) {
-    return `${p.name} (${p.repositories.map((r) => r.repoFullName).join(", ")})`;
+    return `${p.name} (${p.repositories
+      .map((r) => (r.sourceType === "local" && r.localPath ? r.localPath : r.repoFullName))
+      .join(", ")})`;
   }
   return p.repoFullName ?? p.name;
 }
 
 function hasRealRepos(p: Project) {
-  const repos = p.repositories.length > 0 ? p.repositories : p.repoFullName ? [{ repoFullName: p.repoFullName }] : [];
-  return repos.some((r) => r.repoFullName !== "demo/sample-app");
+  const repos =
+    p.repositories.length > 0
+      ? p.repositories
+      : p.repoFullName
+        ? [{ repoFullName: p.repoFullName, sourceType: "github" as const }]
+        : [];
+  return repos.some((r) => r.sourceType === "local" || r.repoFullName !== "demo/sample-app");
 }
 
 export default function NewTicketPage() {

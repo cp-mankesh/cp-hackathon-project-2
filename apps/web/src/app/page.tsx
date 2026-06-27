@@ -13,8 +13,17 @@ interface PublicProject {
   _count: { tickets: number };
 }
 
+interface AuthUser {
+  name?: string | null;
+  email?: string;
+}
+
 export default function LandingPage() {
   const [projects, setProjects] = useState<PublicProject[]>([]);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [hasGithub, setHasGithub] = useState(false);
 
   useEffect(() => {
     fetch(`${API_URL}/api/projects/public`)
@@ -22,6 +31,27 @@ export default function LandingPage() {
       .then((d) => setProjects(d.projects ?? []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    async function loadAuth() {
+      try {
+        const me = await api<{ user: AuthUser }>("/api/auth/me");
+        setUser(me.user);
+        setIsAuthenticated(true);
+        const integrations = await api<{ integrations: Array<{ type: string }> }>("/api/integrations");
+        setHasGithub(integrations.integrations.some((i) => i.type === "github"));
+      } catch {
+        setIsAuthenticated(false);
+        setUser(null);
+        setHasGithub(false);
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+    loadAuth();
+  }, []);
+
+  const userLabel = user?.name ?? user?.email ?? "Account";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-purple-50/30">
@@ -37,16 +67,41 @@ export default function LandingPage() {
             </div>
           </div>
           <nav className="flex items-center gap-4">
-            <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">
-              Sign in
-            </Link>
-            <a
-              href={`${API_URL}/api/auth/github`}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
-            >
-              <Github className="h-4 w-4" />
-              Connect GitHub
-            </a>
+            {authLoading ? (
+              <span className="text-sm text-gray-400">Loading…</span>
+            ) : isAuthenticated ? (
+              <>
+                <span className="hidden text-sm text-gray-600 sm:inline">{userLabel}</span>
+                <Link
+                  href="/admin"
+                  className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                >
+                  Admin Panel
+                </Link>
+                {!hasGithub && (
+                  <a
+                    href={`${API_URL}/api/auth/github`}
+                    className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+                  >
+                    <Github className="h-4 w-4" />
+                    Connect GitHub
+                  </a>
+                )}
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900">
+                  Sign in
+                </Link>
+                <a
+                  href={`${API_URL}/api/auth/github`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+                >
+                  <Github className="h-4 w-4" />
+                  Connect GitHub
+                </a>
+              </>
+            )}
           </nav>
         </div>
       </header>
@@ -63,20 +118,43 @@ export default function LandingPage() {
             approval before merge.
           </p>
           <div className="mt-8 flex justify-center gap-4">
-            <Link
-              href="/admin"
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary-hover"
-            >
-              Open Admin Panel
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <a
-              href={`${API_URL}/api/auth/github`}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <Github className="h-4 w-4" />
-              Connect GitHub
-            </a>
+            {authLoading ? null : isAuthenticated ? (
+              <>
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary-hover"
+                >
+                  Open Admin Panel
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                {!hasGithub && (
+                  <a
+                    href={`${API_URL}/api/auth/github`}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    <Github className="h-4 w-4" />
+                    Connect GitHub
+                  </a>
+                )}
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 font-medium text-white hover:bg-primary-hover"
+                >
+                  Sign in
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <a
+                  href={`${API_URL}/api/auth/github`}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-6 py-3 font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Github className="h-4 w-4" />
+                  Connect GitHub
+                </a>
+              </>
+            )}
           </div>
         </section>
 
@@ -89,12 +167,30 @@ export default function LandingPage() {
             <div className="rounded-xl border border-dashed border-gray-200 bg-white p-12 text-center">
               <FolderGit2 className="mx-auto h-10 w-10 text-gray-300" />
               <p className="mt-3 text-gray-500">No connected projects yet.</p>
-              <a
-                href={`${API_URL}/api/auth/github`}
-                className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
-              >
-                Connect your first repository →
-              </a>
+              {authLoading ? null : isAuthenticated ? (
+                !hasGithub ? (
+                  <a
+                    href={`${API_URL}/api/auth/github`}
+                    className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    Connect GitHub to add your first repository →
+                  </a>
+                ) : (
+                  <Link
+                    href="/admin/projects"
+                    className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+                  >
+                    Create your first project →
+                  </Link>
+                )
+              ) : (
+                <Link
+                  href="/login"
+                  className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
+                >
+                  Sign in to connect your first repository →
+                </Link>
+              )}
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
