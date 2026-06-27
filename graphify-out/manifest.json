@@ -4,8 +4,8 @@
     "hash": "0649bfcbbabe80688cf47addc67bfcc0"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/dev.mjs": {
-    "mtime": 1782446761.5478992,
-    "hash": "cc8e8b8ee381479ee50466cc71f1277a"
+    "mtime": 1782535107.147838,
+    "hash": "e83beb03d52f8e3ed3929fe7579f16b2"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/migrate-multi-repo.mjs": {
     "mtime": 1782447899.5015197,
@@ -23,6 +23,10 @@
     "mtime": 1782448091.9802232,
     "hash": "d7ee55063de78d6c250251fe276ef0a6"
   },
+  "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/setup.mjs": {
+    "mtime": 1782535085.0889246,
+    "hash": "97572b5315576b459cfb978e268a3eae"
+  },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/check-tickets.mjs": {
     "mtime": 1782440362.3156323,
     "hash": "f78c4efceedb2c6377412fa1082369e4"
@@ -30,6 +34,10 @@
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/stop.mjs": {
     "mtime": 1782446761.5478992,
     "hash": "b3b9be24802f6c27a6bfe9623864e262"
+  },
+  "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/scripts/lib/bootstrap.mjs": {
+    "mtime": 1782535084.6149266,
+    "hash": "7ee0bf18ef45427636e240d706517b07"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/db/src/index.ts": {
     "mtime": 1782359184.436128,
@@ -40,11 +48,11 @@
     "hash": "188dd8ee44ffd1166036468a7a988331"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/shared/src/diff-parse.test.ts": {
-    "mtime": 1782460761.180388,
+    "mtime": 1782482239.8528128,
     "hash": "d8f8fe16e14758f7ff7ecd1df6aeff63"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/shared/src/index.ts": {
-    "mtime": 1782460758.0884252,
+    "mtime": 1782487722.787025,
     "hash": "45ecdae79965c560e2bdd4eb1ffb01d7"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/shared/src/plan-normalize.test.ts": {
@@ -60,7 +68,7 @@
     "hash": "078c6f9e4bdc0a3dc6d61edf47d18df5"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/shared/src/diff-parse.ts": {
-    "mtime": 1782460739.3026512,
+    "mtime": 1782482239.8528128,
     "hash": "4b3c0a964db8fd788803afb2351ca736"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/shared/src/repo-paths.ts": {
@@ -72,11 +80,11 @@
     "hash": "c4b09d2dfd497714e5933ea75801ddc5"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/index.ts": {
-    "mtime": 1782459994.9427543,
+    "mtime": 1782482239.8528128,
     "hash": "4befd311aca89f8beec20c9d5e3028c3"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/git.ts": {
-    "mtime": 1782460070.4698105,
+    "mtime": 1782482239.8528128,
     "hash": "44cec693c9881c8ea8238cb62d434866"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/repo-analysis.test.ts": {
@@ -84,7 +92,7 @@
     "hash": "bb5d6260e98861f6d2b1ec2e01915097"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/openhands.ts": {
-    "mtime": 1782460743.819597,
+    "mtime": 1782482239.8528128,
     "hash": "5d195e663149be09abb0155a52d372bb"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/plan-format.ts": {
@@ -96,7 +104,7 @@
     "hash": "fa737a707f489a42e4ddae2192d30a7e"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/agents.test.ts": {
-    "mtime": 1782460779.4071689,
+    "mtime": 1782482239.8478127,
     "hash": "f5a285d0cb813c75349a1fe8ca007456"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/openai.ts": {
@@ -112,7 +120,7 @@
     "hash": "4ea441424f757a0c8424a2986be268b0"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/packages/agents/src/multi-repo.ts": {
-    "mtime": 1782460746.457565,
+    "mtime": 1782482239.8458128,
     "hash": "890e248ace38124ac079be8442dbc61b"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/api/src/index.ts": {
@@ -144,7 +152,7 @@
     "hash": "772209b9d2fc0e87f7ad7e5731a563c6"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/api/src/routes/tickets.ts": {
-    "mtime": 1782447877.1749144,
+    "mtime": 1782487722.8110244,
     "hash": "0d8c4b0f7823d4e511038e74160f96a0"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/api/src/routes/projects.ts": {
@@ -172,23 +180,23 @@
     "hash": "b94ef90df61e78acd3a8842a7d2793c5"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/ChangeSummaryViewer.tsx": {
-    "mtime": 1782460748.729538,
+    "mtime": 1782482239.8528128,
     "hash": "540250caf122ac77a3d766045cc61844"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/ReviewNotesViewer.tsx": {
-    "mtime": 1782458847.8241682,
+    "mtime": 1782482239.8528128,
     "hash": "4406595c9be200538df9d23175739102"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/TestResultsViewer.tsx": {
-    "mtime": 1782458838.3172927,
+    "mtime": 1782482239.877813,
     "hash": "ce1fdc281169da85e91dc2d0b153ba36"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/artifact-viewers.test.ts": {
-    "mtime": 1782458875.7518039,
+    "mtime": 1782482239.877813,
     "hash": "46b1c1620203ef83f9e4761efed61500"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/TicketConversationViewer.tsx": {
-    "mtime": 1782456814.7216487,
+    "mtime": 1782482239.8528128,
     "hash": "42a9c2132ee6a6910c66de9d355ff464"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/components/PlanViewer.tsx": {
@@ -196,15 +204,15 @@
     "hash": "528fe10d306ca13f58c32615c0f37e1c"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/lib/utils.ts": {
-    "mtime": 1782440362.3156323,
+    "mtime": 1782487722.8420236,
     "hash": "472f30caed10ddfe7984d7052284d8d8"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/lib/ticket-conversation.ts": {
-    "mtime": 1782456796.25572,
+    "mtime": 1782482239.8528128,
     "hash": "302f00d87b7534e0a67bfe5d0171fa8d"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/lib/ticket-conversation.test.ts": {
-    "mtime": 1782456854.418492,
+    "mtime": 1782482239.8528128,
     "hash": "ed4990ea233ccc9e5c03ba7741f98558"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/lib/api.ts": {
@@ -264,11 +272,11 @@
     "hash": "3c6125be046241f03c7e21e3ae0f7349"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/app/admin/tickets/page.tsx": {
-    "mtime": 1782447999.0103219,
-    "hash": "1141739c1bdf707611c5eb5e66732d1e"
+    "mtime": 1782487722.8870227,
+    "hash": "9b94433639c347a97ec3b25fd841eb44"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/app/admin/tickets/[id]/page.tsx": {
-    "mtime": 1782458864.450951,
+    "mtime": 1782482239.8528128,
     "hash": "9aa58f26be12bf0a456ba0ca87123559"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/apps/web/src/app/admin/tickets/new/page.tsx": {
@@ -292,7 +300,7 @@
     "hash": "305bc4413daceefed4b6413e47a28ab8"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/workers/temporal/src/types.ts": {
-    "mtime": 1782459995.7177446,
+    "mtime": 1782482239.8528128,
     "hash": "dbce16b4fa2ca0fd7876bf6d18b9978a"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/workers/temporal/src/index.ts": {
@@ -304,11 +312,11 @@
     "hash": "518ee1b98702952b433900172b4b1be4"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/workers/temporal/src/activities/index.ts": {
-    "mtime": 1782459999.4776974,
+    "mtime": 1782482239.8528128,
     "hash": "76f9d2a86e69987821220b0fdf8441eb"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/workers/temporal/src/workflows/ticket-workflow.ts": {
-    "mtime": 1782459999.4786973,
+    "mtime": 1782482239.8498127,
     "hash": "c78ad1930c8601b023ad7e64970c19bf"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/workers/temporal/src/workflows/index.ts": {
@@ -320,8 +328,8 @@
     "hash": "e00ab951be4f75041359c983acf883ef"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/README.md": {
-    "mtime": 1782446761.5478992,
-    "hash": "e5825fd09502db0f526561b3de55569d"
+    "mtime": 1782535109.2558298,
+    "hash": "162c23cf85b4a99f922d5860c2a8caba"
   },
   "/home/cp/CP/node/react/hackathon/cp-hackathon-project-2/docker-compose.yml": {
     "mtime": 1782406082.948193,

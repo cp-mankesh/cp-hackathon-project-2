@@ -64,10 +64,10 @@ export default function TicketHubPage() {
     filter === "all" ? tickets : tickets.filter((t) => t.source === filter);
 
   const priorityCards = [
-    { key: "P0", label: "P0 Critical", sub: "Core commerce" },
-    { key: "P1", label: "P1 Important", sub: "Marketing & sales" },
-    { key: "P2", label: "P2 Standard", sub: "SEO & catalog" },
-    { key: "P3", label: "P3 Low", sub: "Ops & utilities" },
+    { key: "P0", label: "Critical", sub: "Core commerce" },
+    { key: "P1", label: "Important", sub: "Marketing & sales" },
+    { key: "P2", label: "Standard", sub: "SEO & catalog" },
+    { key: "P3", label: "Low", sub: "Ops & utilities" },
   ];
 
   const byPriority = { P0: 0, P1: 0, P2: 0, P3: 0 };

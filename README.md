@@ -27,22 +27,37 @@ AI Engineer Hub — a Devin/Railway-style platform for autonomous ticket-driven 
 
 - Node.js 20+
 - Docker & Docker Compose
-- Git
 
-### One command to run everything
+### Setup (first time)
+
+1. Clone the repo
+2. Place the shared `.env` file in the project root
+3. Run setup (works on Linux, macOS, and Windows):
 
 ```bash
-npm install
+npm run setup
+```
+
+Or use the platform helper:
+
+```bash
+./setup.sh          # Linux / macOS
+setup.bat           # Windows
+```
+
+Setup installs dependencies, starts Docker, syncs the database, and builds packages.
+
+### Run the app
+
+```bash
 npm run dev
 ```
 
-This single command will:
+Or setup + run in one step:
 
-1. Create `.env` from `.env.example` if missing
-2. Start Docker (Postgres, Redis, Temporal, Temporal UI)
-3. Wait for infrastructure to be healthy
-4. Sync the database schema (Prisma)
-5. Start API, Web, and Temporal worker
+```bash
+npm run setup:run
+```
 
 | Service | URL |
 |---------|-----|
@@ -54,13 +69,6 @@ This single command will:
 
 ```bash
 npm run stop
-```
-
-### Environment
-
-```bash
-cp .env.example .env
-# Edit .env — set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, OPENAI_API_KEY
 ```
 
 Default ports **3020** (web) and **4020** (api) avoid conflicts with other local projects on 3000/3001.

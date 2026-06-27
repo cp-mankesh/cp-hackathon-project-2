@@ -8,6 +8,8 @@
     "workers/*"
   ],
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "setup:run": "node scripts/setup.mjs --run",
     "dev": "node scripts/dev.mjs",
     "stop": "node scripts/stop.mjs",
     "dev:apps": "concurrently -k -n shared,agents,api,web,worker -c cyan,magenta,blue,green,yellow \"npm run dev -w @ados/shared\" \"npm run dev -w @ados/agents\" \"npm run dev -w @ados/api\" \"npm run dev -w @ados/web\" \"npm run dev -w @ados/temporal-worker\"",
